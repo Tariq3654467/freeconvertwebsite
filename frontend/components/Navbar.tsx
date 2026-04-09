@@ -6,7 +6,7 @@ import { Menu, RefreshCw } from 'lucide-react';
 export default function Navbar() {
   return (
     <nav className="navbar">
-      <div style={{ display: 'flex', alignItems: center, gap: '1rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
         <button className="menu-btn" style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
           <Menu size={24} color="#2c3e50" />
         </button>

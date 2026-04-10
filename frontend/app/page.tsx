@@ -1,20 +1,23 @@
 "use client";
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
-import { 
-  ChevronDown, 
-  Upload, 
-  Cloud, 
-  Link as LinkIcon, 
-  HardDrive, 
+import {
+  ChevronDown,
+  Upload,
+  Cloud,
+  Link as LinkIcon,
+  HardDrive,
   FileText,
   Download,
   CheckCircle2,
   AlertCircle,
-  Loader2
+  Loader2,
+  Video,
+  Image as ImageIcon
 } from 'lucide-react';
 import Link from 'next/link';
+import ToolsGrid from '../components/ToolsGrid';
 
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
@@ -24,6 +27,18 @@ export default function Home() {
   const [downloadLink, setDownloadLink] = useState<string>('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const handleSelect = (e: any) => {
+        const tool = e.detail;
+        if (tool.to) setTargetFormat(tool.to);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      };
+      window.addEventListener('selectTool', handleSelect);
+      return () => window.removeEventListener('selectTool', handleSelect);
+    }
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -46,11 +61,11 @@ export default function Home() {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('target_format', targetFormat);
-      
+
       const response = await axios.post('http://127.0.0.1:5000/api/convert/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      
+
       processFile(response.data.job_id);
     } catch (err) {
       console.error(err);
@@ -95,16 +110,16 @@ export default function Home() {
       <div className="hero-section">
         <h1 className="hero-title">File Converter</h1>
         <p className="hero-subtitle">
-          Easily convert files from one format to another, online. 
+          Easily convert files from one format to another, online.
           Fast, free, and secure.
         </p>
       </div>
 
-      <div className="converter-card">
-        <input 
-          type="file" 
-          ref={fileInputRef} 
-          style={{ display: 'none' }} 
+      <div className="converter-card" style={{ marginBottom: '5rem' }}>
+        <input
+          type="file"
+          ref={fileInputRef}
+          style={{ display: 'none' }}
           onChange={handleFileChange}
         />
 
@@ -113,8 +128,8 @@ export default function Home() {
             <Upload size={24} />
             Choose Files
           </button>
-          <button 
-            className="btn-dropdown" 
+          <button
+            className="btn-dropdown"
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           >
             <ChevronDown size={20} />
@@ -150,8 +165,8 @@ export default function Home() {
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
               <span style={{ fontWeight: 500, fontSize: '0.9rem' }}>Convert to:</span>
-              <select 
-                value={targetFormat} 
+              <select
+                value={targetFormat}
                 onChange={(e) => setTargetFormat(e.target.value)}
                 style={{
                   padding: '0.5rem 1rem',
@@ -165,6 +180,10 @@ export default function Home() {
                 <option value="jpg">JPG</option>
                 <option value="webp">WEBP</option>
                 <option value="pdf">PDF</option>
+                <option value="docx">DOCX</option>
+                <option value="mp3">MP3</option>
+                <option value="mp4">MP4</option>
+                <option value="ogg">OGG</option>
               </select>
             </div>
 
@@ -201,6 +220,8 @@ export default function Home() {
           By proceeding, you agree to our <Link href="/terms" style={{ color: 'inherit', textDecoration: 'underline' }}>Terms of Use</Link>.
         </div>
       </div>
+
+      <ToolsGrid />
     </main>
   );
 }

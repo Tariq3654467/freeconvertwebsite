@@ -56,4 +56,3 @@ export default function ToolsGrid({}: ToolsGridProps) {
     </div>
   );
 }
-fr

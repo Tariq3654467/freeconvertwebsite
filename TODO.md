@@ -1,36 +1,30 @@
-# Task: Implement Convert/Compress Menus + Login/Signup UI/UX Improvements
+# Auth State Fix - Progress Tracker
 
-**Status:** In Progress
+## Plan Steps:
 
-## ✅ 1. Create TODO.md
-Created this file.
+### 1. Create AuthContext (frontend/contexts/AuthContext.tsx)
+- [x] Create file with Context, Provider, useAuth hook
+- [x] Uses jwt-decode for user info from token
+- [x] Persists to localStorage
 
-## ✅ 2. Create frontend/components/ToolsGrid.tsx
-✅ Created with card grid, icons, hover effects.
+### 2. Update layout.tsx
+- [x] Wrap children with AuthProvider
 
-## ✅ 3. Update frontend/app/globals.css
-✅ Added ToolsGrid, SideDrawer, auth form styles.
+### 3. Update Navbar.tsx & SideDrawer.tsx
+- [ ] Import/use useAuth
+- [ ] Conditional render: logged-in (Profile/Logout) vs guest (Login/Signup)
 
-## ✅ 4. Update frontend/app/page.tsx
-✅ Replaced grid with <ToolsGrid /> import.
+### 4. Fix login/page.tsx
+- [ ] Use useRouter() for redirect
 
-## ✅ 5. Update frontend/components/SideDrawer.tsx
-✅ Removed jsx styles, used global CSS classes.
+### 5. Fix signup/page.tsx
+- [ ] Auto-login after signup success, then redirect home
 
-## ✅ 6. Update frontend/app/login/page.tsx
-✅ Added modern UI, validation, loading, error handling, links.
+### 6. Update home page.tsx
+- [ ] Show welcome message for logged-in users
 
-## ✅ 7. Update frontend/app/signup/page.tsx
-✅ Added modern UI, validation, confirm password, visibility toggle, links.
+### 7. Test & Install deps
+- [x] cd frontend && npm i jwt-decode
+- [ ] Test full flow
 
-## ⬜ 8. Test
-- cd frontend && npm run dev
-- Test drawer, grid, tool selection, login/signup, responsive.
-
-**Task Complete!**
-
-## ⬜ 8. Test
-- cd frontend &amp;&amp; npm run dev
-- Test drawer, grid, tool selection, login/signup, responsive.
-
-**Next:** Step 2.
+**Current Progress: AuthContext created, jwt-decode installed. Next: Update layout.tsx (step 2)**

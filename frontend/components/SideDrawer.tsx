@@ -9,15 +9,18 @@ import {
     Image as ImageIcon,
     FileText,
     MoreHorizontal,
-    ChevronRight
+    ChevronRight,
+    User,
+    LogOut
 } from 'lucide-react';
 import { TOOLS_DATA, ToolCategory, ToolItem } from '../constants/tools';
+import { useAuth } from '../contexts/AuthContext';
 
 interface SideDrawerProps {
     isOpen: boolean;
     onClose: () => void;
     onSelectTool: (tool: ToolItem) => void;
-}
+  }
 
 export default function SideDrawer({ isOpen, onClose, onSelectTool }: SideDrawerProps) {
     const [searchQuery, setSearchQuery] = useState('');

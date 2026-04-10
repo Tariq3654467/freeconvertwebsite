@@ -1,7 +1,7 @@
 "use client";
 
 import { Video, Image as ImageIcon, FileText, ChevronRight } from 'lucide-react';
-import { TOOLS_DATA, ToolCategory } from '../../constants/tools';
+import { TOOLS_DATA, ToolCategory } from '../constants/tools';
 
 interface ToolsGridProps {}
 

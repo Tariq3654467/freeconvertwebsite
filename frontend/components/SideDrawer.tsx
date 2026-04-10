@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
     X,
     Search,
@@ -26,6 +27,9 @@ export default function SideDrawer({ isOpen, onClose, onSelectTool }: SideDrawer
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedSection, setExpandedSection] = useState<'Convert' | 'Compress' | null>('Convert');
     const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
+
+    const { user, logout } = useAuth();
+    const router = useRouter();
 
     const toggleCategory = (catName: string) => {
         setExpandedCategories(prev =>
@@ -65,8 +69,45 @@ export default function SideDrawer({ isOpen, onClose, onSelectTool }: SideDrawer
 
                 <div className="drawer-body">
                     <div className="drawer-auth">
-                        <button className="btn-outline">Log In</button>
-<button className="btn-primary w-full">Sign Up</button>
+                        {user ? (
+                            <div className="user-info">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <User size={18} />
+                                    <span className="text-sm font-medium">{user.username}</span>
+                                </div>
+                                <button
+                                    className="btn-outline w-full"
+                                    onClick={() => {
+                                        logout();
+                                        onClose();
+                                    }}
+                                >
+                                    <LogOut size={16} className="mr-2" />
+                                    Log Out
+                                </button>
+                            </div>
+                        ) : (
+                            <>
+                                <button
+                                    className="btn-outline"
+                                    onClick={() => {
+                                        router.push('/login');
+                                        onClose();
+                                    }}
+                                >
+                                    Log In
+                                </button>
+                                <button
+                                    className="btn-primary w-full"
+                                    onClick={() => {
+                                        router.push('/signup');
+                                        onClose();
+                                    }}
+                                >
+                                    Sign Up
+                                </button>
+                            </>
+                        )}
                     </div>
 
                     <div className="drawer-sections">

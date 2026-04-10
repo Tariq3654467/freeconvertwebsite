@@ -2,7 +2,9 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import axios from 'axios';
+import { useAuth } from '../../contexts/AuthContext';
 
 
 export default function Login() {
@@ -11,6 +13,9 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({ email: '', password: '' });
   const [message, setMessage] = useState('');
+
+  const { login } = useAuth();
+  const router = useRouter();
 
   const validateForm = () => {
     const newErrors = { email: '', password: '' };
@@ -31,9 +36,9 @@ export default function Login() {
         email,
         password
       });
-      localStorage.setItem('token', response.data.token);
+      login(response.data.token);
       setMessage('Login successful! Redirecting...');
-      setTimeout(() => window.location.href = '/', 1500);
+      setTimeout(() => router.push('/'), 1500);
     } catch (err: any) {
       setMessage(err.response?.data?.message || 'Login failed');
     } finally {

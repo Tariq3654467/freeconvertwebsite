@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Eye, EyeOff } from 'lucide-react';
 import axios from 'axios';
 
@@ -15,6 +16,8 @@ export default function Signup() {
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({ username: '', email: '', password: '', confirmPassword: '' });
   const [message, setMessage] = useState('');
+
+  const router = useRouter();
 
   const validateForm = () => {
     const newErrors = { username: '', email: '', password: '', confirmPassword: '' };
@@ -40,7 +43,7 @@ export default function Signup() {
         password
       });
       setMessage('Signup successful! You can now log in.');
-      setTimeout(() => window.location.href = '/login', 1500);
+      setTimeout(() => router.push('/login'), 1500);
     } catch (err: any) {
       setMessage(err.response?.data?.message || 'Signup failed');
     } finally {

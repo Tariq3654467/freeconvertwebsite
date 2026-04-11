@@ -55,7 +55,10 @@ export default function Signup() {
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <h1 className="auth-title">Create Account</h1>
+        <h1 className="auth-title">Join Prism Engine</h1>
+        <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginBottom: '2.5rem', marginTop: '-1.5rem', fontSize: '0.95rem' }}>
+          Experience the future of file processing.
+        </p>
         <form onSubmit={handleSignup}>
           <div className="form-group">
             <label className="form-label" htmlFor="username">Username</label>
@@ -63,7 +66,7 @@ export default function Signup() {
               id="username"
               type="text" 
               className={`form-input ${errors.username && 'error'}`}
-              placeholder="Choose a username" 
+              placeholder="Your username" 
               value={username} 
               onChange={e => setUsername(e.target.value)} 
               required 
@@ -71,12 +74,12 @@ export default function Signup() {
             {errors.username && <p className="error-small">{errors.username}</p>}
           </div>
           <div className="form-group">
-            <label className="form-label" htmlFor="email">Email</label>
+            <label className="form-label" htmlFor="email">Email Address</label>
             <input 
               id="email"
               type="email" 
               className={`form-input ${errors.email && 'error'}`}
-              placeholder="Enter your email" 
+              placeholder="name@example.com" 
               value={email} 
               onChange={e => setEmail(e.target.value)} 
               required 
@@ -90,7 +93,7 @@ export default function Signup() {
                 id="password"
                 type={showPassword ? "text" : "password"} 
                 className={`form-input ${errors.password && 'error'}`}
-                placeholder="Create a password" 
+                placeholder="6+ characters" 
                 value={password} 
                 onChange={e => setPassword(e.target.value)} 
                 required 
@@ -111,7 +114,7 @@ export default function Signup() {
               id="confirmPassword"
               type="password" 
               className={`form-input ${errors.confirmPassword && 'error'}`}
-              placeholder="Confirm your password" 
+              placeholder="Repeat password" 
               value={confirmPassword} 
               onChange={e => setConfirmPassword(e.target.value)} 
               required 
@@ -119,7 +122,7 @@ export default function Signup() {
             {errors.confirmPassword && <p className="error-small">{errors.confirmPassword}</p>}
           </div>
           <button type="submit" className="form-btn" disabled={isLoading}>
-            {isLoading ? 'Creating Account...' : 'Sign Up'}
+            {isLoading ? 'Creating Account...' : 'Get Started'}
           </button>
           {message && (
             <div className={`message ${message.includes('successful') ? 'success' : 'error'}`}>
@@ -127,8 +130,8 @@ export default function Signup() {
             </div>
           )}
           <div className="auth-links">
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '1rem' }}>
-              Already have an account? <Link href="/login" className="auth-link">Log In</Link>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+              Already a member? <Link href="/login" className="auth-link">Sign In</Link>
             </p>
           </div>
         </form>

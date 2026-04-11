@@ -13,8 +13,9 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  Video,
-  Image as ImageIcon
+  ShieldCheck,
+  Zap,
+  Lock
 } from 'lucide-react';
 import Link from 'next/link';
 import ToolsGrid from '../components/ToolsGrid';
@@ -108,14 +109,30 @@ export default function Home() {
   return (
     <main className="main-container">
       <div className="hero-section">
-        <h1 className="hero-title">File Converter</h1>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(99,102,241,0.1)', color: 'var(--primary-color)', padding: '0.5rem 1rem', borderRadius: '2rem', fontSize: '0.85rem', fontWeight: 700, marginBottom: '1.5rem', border: '1px solid rgba(99,102,241,0.2)' }}>
+          <Zap size={14} /> NEW: Prism Engine 2.0 is live!
+        </div>
+        <h1 className="hero-title">File Conversion,<br/>Refined.</h1>
         <p className="hero-subtitle">
-          Easily convert files from one format to another, online.
-          Fast, free, and secure.
+          Experience the next generation of online file conversion. 
+          Fast, private, and powered by our ultra-secure Prism engine.
         </p>
+
+        {/* Trust Badges */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginBottom: '4rem', opacity: 0.7 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
+            <ShieldCheck size={18} /> <span>SSL Encrypted</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
+            <Lock size={18} /> <span>Private Processing</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
+            <Download size={18} /> <span>10k+ Files Daily</span>
+          </div>
+        </div>
       </div>
 
-      <div className="converter-card" style={{ marginBottom: '5rem' }}>
+      <div className="converter-card" style={{ marginBottom: '8rem' }}>
         <input
           type="file"
           ref={fileInputRef}
@@ -132,7 +149,7 @@ export default function Home() {
             className="btn-dropdown"
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           >
-            <ChevronDown size={20} />
+            <ChevronDown size={22} />
           </button>
 
           {isDropdownOpen && (
@@ -154,70 +171,92 @@ export default function Home() {
         </div>
 
         {file && (
-          <div style={{ marginTop: '2rem', textAlign: 'left', maxWidth: '400px', margin: '2rem auto' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', padding: '1rem', background: 'white', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
-              <FileText color="var(--primary-color)" />
+          <div style={{ marginTop: '2.5rem', textAlign: 'left', maxWidth: '450px', margin: '2.5rem auto' }}>
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '1rem', 
+              marginBottom: '1.5rem', 
+              padding: '1.25rem', 
+              background: 'rgba(255,255,255,0.05)', 
+              borderRadius: '12px', 
+              border: '1px solid var(--border-glass)' 
+            }}>
+              <FileText color="var(--primary-color)" size={24} />
               <div style={{ overflow: 'hidden' }}>
-                <p style={{ fontWeight: 600, fontSize: '0.9rem', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{file.name}</p>
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                <p style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-main)', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{file.name}</p>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{(file.size / 1024 / 1024).toFixed(2)} MB</p>
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-              <span style={{ fontWeight: 500, fontSize: '0.9rem' }}>Convert to:</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', background: 'rgba(255,255,255,0.03)', padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid var(--border-glass)' }}>
+              <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-muted)' }}>Target Format:</span>
               <select
                 value={targetFormat}
                 onChange={(e) => setTargetFormat(e.target.value)}
                 style={{
                   padding: '0.5rem 1rem',
-                  borderRadius: '6px',
-                  border: '1px solid var(--border-light)',
-                  background: 'white',
-                  cursor: 'pointer'
+                  borderRadius: '8px',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  background: 'var(--bg-secondary)',
+                  color: 'var(--text-main)',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  outline: 'none'
                 }}
               >
-                <option value="png">PNG</option>
-                <option value="jpg">JPG</option>
-                <option value="webp">WEBP</option>
-                <option value="pdf">PDF</option>
-                <option value="docx">DOCX</option>
-                <option value="mp3">MP3</option>
-                <option value="mp4">MP4</option>
-                <option value="ogg">OGG</option>
+                <optgroup label="Images" style={{ background: 'var(--bg-secondary)' }}>
+                  <option value="png">PNG</option>
+                  <option value="jpg">JPG</option>
+                  <option value="webp">WEBP</option>
+                </optgroup>
+                <optgroup label="Documents" style={{ background: 'var(--bg-secondary)' }}>
+                  <option value="pdf">PDF</option>
+                  <option value="docx">DOCX</option>
+                </optgroup>
+                <optgroup label="Media" style={{ background: 'var(--bg-secondary)' }}>
+                  <option value="mp3">MP3</option>
+                  <option value="mp4">MP4</option>
+                  <option value="ogg">OGG</option>
+                </optgroup>
               </select>
             </div>
 
-            <button className="btn-choose" style={{ width: '100%', borderRadius: 'var(--radius-md)' }} onClick={handleUpload}>
-              Convert
+            <button className="btn-choose" style={{ width: '100%', borderRadius: 'var(--radius-lg)', justifyContent: 'center' }} onClick={handleUpload}>
+              Convert Now
             </button>
           </div>
         )}
 
         {status && (
-          <div style={{ marginTop: '1.5rem' }}>
-            <div className={`status-badge status-${statusType}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
-              {statusType === 'processing' && <Loader2 size={16} className="animate-spin" />}
-              {statusType === 'success' && <CheckCircle2 size={16} />}
-              {statusType === 'error' && <AlertCircle size={16} />}
+          <div style={{ marginTop: '2rem' }}>
+            <div className={`status-badge status-${statusType}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.625rem' }}>
+              {statusType === 'processing' && <Loader2 size={18} className="animate-spin" />}
+              {statusType === 'success' && <CheckCircle2 size={18} />}
+              {statusType === 'error' && <AlertCircle size={18} />}
               {status}
             </div>
           </div>
         )}
 
         {downloadLink && (
-          <div style={{ marginTop: '1.5rem' }}>
-            <a href={downloadLink} className="btn-choose" style={{ width: '100%', borderRadius: 'var(--radius-md)', background: '#28a745', textDecoration: 'none', justifyContent: 'center' }}>
-              <Download size={20} />
+          <div style={{ marginTop: '2rem' }}>
+            <a href={downloadLink} className="btn-choose" style={{ 
+              width: '100%', 
+              borderRadius: 'var(--radius-lg)', 
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', 
+              textDecoration: 'none', 
+              justifyContent: 'center',
+              boxShadow: '0 4px 15px rgba(16, 185, 129, 0.3)'
+            }}>
+              <Download size={22} />
               Download Result
             </a>
           </div>
         )}
 
-        <div className="info-text">
-          Max file size 1GB. <Link href="/signup">Sign Up</Link> for more
-        </div>
-        <div className="terms-text">
-          By proceeding, you agree to our <Link href="/terms" style={{ color: 'inherit', textDecoration: 'underline' }}>Terms of Use</Link>.
+        <div className="info-text" style={{ fontSize: '0.85rem', color: 'var(--text-dim)', marginTop: '2rem' }}>
+          Max file size <span style={{ color: 'var(--text-muted)' }}>1GB</span>. <Link href="/signup" style={{ color: 'var(--primary-color)', fontWeight: 700, textDecoration: 'none' }}>Upgrade to Pro</Link> for more.
         </div>
       </div>
 

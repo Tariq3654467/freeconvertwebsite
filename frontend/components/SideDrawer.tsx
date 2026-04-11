@@ -12,7 +12,9 @@ import {
     MoreHorizontal,
     ChevronRight,
     User,
-    LogOut
+    LogOut,
+    Music,
+    FileArchive
 } from 'lucide-react';
 import { TOOLS_DATA, ToolCategory, ToolItem } from '../constants/tools';
 import { useAuth } from '../contexts/AuthContext';
@@ -42,6 +44,8 @@ export default function SideDrawer({ isOpen, onClose, onSelectTool }: SideDrawer
             case 'video': return <Video size={18} />;
             case 'image': return <ImageIcon size={18} />;
             case 'file-text': return <FileText size={18} />;
+            case 'music': return <Music size={18} />;
+            case 'archive': return <FileArchive size={18} />;
             default: return <MoreHorizontal size={18} />;
         }
     };
@@ -53,10 +57,10 @@ export default function SideDrawer({ isOpen, onClose, onSelectTool }: SideDrawer
             <div className="drawer-content" onClick={e => e.stopPropagation()}>
                 <div className="drawer-header">
                     <div className="search-bar-container">
-                        <Search size={18} color="#a0aec0" />
+                        <Search size={18} />
                         <input
                             type="text"
-                            placeholder="Search"
+                            placeholder="Universal search..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="search-input"
@@ -71,23 +75,26 @@ export default function SideDrawer({ isOpen, onClose, onSelectTool }: SideDrawer
                     <div className="drawer-auth">
                         {user ? (
                             <div className="user-info">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <User size={18} />
-                                    <span className="text-sm font-medium">{user.username}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', color: 'var(--text-main)' }}>
+                                    <div style={{ padding: '0.5rem', background: 'rgba(255,255,255,0.05)', borderRadius: '50%', border: '1px solid var(--border-glass)' }}>
+                                        <User size={20} />
+                                    </div>
+                                    <span style={{ fontWeight: 700 }}>{user.username}</span>
                                 </div>
                                 <button
                                     className="btn-outline w-full"
+                                    style={{ border: '1px solid #f87171', color: '#f87171', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                                     onClick={() => {
                                         logout();
                                         onClose();
                                     }}
                                 >
-                                    <LogOut size={16} className="mr-2" />
+                                    <LogOut size={16} />
                                     Log Out
                                 </button>
                             </div>
                         ) : (
-                            <>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                 <button
                                     className="btn-outline"
                                     onClick={() => {
@@ -98,65 +105,66 @@ export default function SideDrawer({ isOpen, onClose, onSelectTool }: SideDrawer
                                     Log In
                                 </button>
                                 <button
-                                    className="btn-primary w-full"
+                                    className="form-btn w-full"
                                     onClick={() => {
                                         router.push('/signup');
                                         onClose();
                                     }}
                                 >
-                                    Sign Up
+                                    Get Started
                                 </button>
-                            </>
+                            </div>
                         )}
                     </div>
 
                     <div className="drawer-sections">
-                        {Object.keys(TOOLS_DATA).map(section => (
-                            <div key={section} className="drawer-section">
+                        <div className="section-tabs">
+                            {Object.keys(TOOLS_DATA).map(section => (
                                 <button
-                                    className={`section-header ${expandedSection === section ? 'active' : ''}`}
+                                    key={section}
+                                    className={`section-tab ${expandedSection === section ? 'active' : ''}`}
                                     onClick={() => setExpandedSection(section as any)}
                                 >
                                     {section}
                                 </button>
+                            ))}
+                        </div>
 
-                                {expandedSection === section && (
-                                    <div className="category-list">
-                                        {TOOLS_DATA[section].map(category => (
-                                            <div key={category.name} className="category-item">
-                                                <button
-                                                    className="category-toggle"
-                                                    onClick={() => toggleCategory(`${section}-${category.name}`)}
-                                                >
-                                                    <div className="category-icon-text">
-                                                        {getIcon(category.icon)}
-                                                        <span>{category.name}</span>
-                                                    </div>
-                                                    {expandedCategories.includes(`${section}-${category.name}`) ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                                                </button>
-
-                                                {expandedCategories.includes(`${section}-${category.name}`) && (
-                                                    <div className="tool-list">
-                                                        {category.items.map(tool => (
-                                                            <button
-                                                                key={tool.id}
-                                                                className="tool-link"
-                                                                onClick={() => {
-                                                                    onSelectTool(tool);
-                                                                    onClose();
-                                                                }}
-                                                            >
-                                                                {tool.name}
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                )}
+                        {expandedSection && (
+                            <div className="category-list">
+                                {TOOLS_DATA[expandedSection].map(category => (
+                                    <div key={category.name} className="category-item">
+                                        <button
+                                            className="category-toggle"
+                                            onClick={() => toggleCategory(`${expandedSection}-${category.name}`)}
+                                        >
+                                            <div className="category-icon-text">
+                                                <div style={{ color: 'var(--primary-color)', display: 'flex' }}>{getIcon(category.icon)}</div>
+                                                <span>{category.name}</span>
                                             </div>
-                                        ))}
+                                            {expandedCategories.includes(`${expandedSection}-${category.name}`) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                        </button>
+
+                                        {expandedCategories.includes(`${expandedSection}-${category.name}`) && (
+                                            <div className="tool-list">
+                                                {category.items.map(tool => (
+                                                    <button
+                                                        key={tool.id}
+                                                        className="tool-link"
+                                                        onClick={() => {
+                                                            onSelectTool(tool);
+                                                            onClose();
+                                                        }}
+                                                    >
+                                                        {tool.name}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
-                                )}
+                                ))}
                             </div>
-                        ))}
+                        )}
                     </div>
                 </div>
             </div>

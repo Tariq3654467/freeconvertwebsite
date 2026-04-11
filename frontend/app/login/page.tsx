@@ -50,15 +50,18 @@ export default function Login() {
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <h1 className="auth-title">Login to FreeConvert</h1>
+        <h1 className="auth-title">Access Prism Engine</h1>
+        <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginBottom: '2.5rem', marginTop: '-1.5rem', fontSize: '0.95rem' }}>
+          Welcome back. The engine is ready.
+        </p>
         <form onSubmit={handleLogin}>
           <div className="form-group">
-            <label className="form-label" htmlFor="email">Email</label>
+            <label className="form-label" htmlFor="email">Email Address</label>
             <input 
               id="email"
               type="email" 
               className={`form-input ${errors.email && 'error'}`}
-              placeholder="Enter your email" 
+              placeholder="name@example.com" 
               value={email} 
               onChange={e => setEmail(e.target.value)} 
               required 
@@ -71,7 +74,7 @@ export default function Login() {
               id="password"
               type="password" 
               className={`form-input ${errors.password && 'error'}`}
-              placeholder="Enter your password" 
+              placeholder="••••••••" 
               value={password} 
               onChange={e => setPassword(e.target.value)} 
               required 
@@ -79,7 +82,7 @@ export default function Login() {
             {errors.password && <p className="error-small">{errors.password}</p>}
           </div>
           <button type="submit" className="form-btn" disabled={isLoading}>
-            {isLoading ? 'Logging in...' : 'Login'}
+            {isLoading ? 'Authenticating...' : 'Sign In'}
           </button>
           {message && (
             <div className={`message ${message.includes('successful') ? 'success' : 'error'}`}>
@@ -87,9 +90,9 @@ export default function Login() {
             </div>
           )}
           <div className="auth-links">
-            <a href="/forgot-password" className="auth-link">Forgot Password?</a>
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-              Don't have an account? <Link href="/signup" className="auth-link">Sign Up</Link>
+            <Link href="/forgot-password" style={{ color: 'var(--text-dim)', fontSize: '0.85rem', textDecoration: 'none' }}>Forgot Password?</Link>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginTop: '1.25rem' }}>
+              New to Prism? <Link href="/signup" className="auth-link">Create Account</Link>
             </p>
           </div>
         </form>

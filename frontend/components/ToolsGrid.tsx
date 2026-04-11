@@ -1,6 +1,6 @@
 "use client";
 
-import { Video, Image as ImageIcon, FileText, ChevronRight } from 'lucide-react';
+import { Video, Image as ImageIcon, FileText, ChevronRight, Music, FileArchive } from 'lucide-react';
 import { TOOLS_DATA, ToolCategory } from '../constants/tools';
 
 interface ToolsGridProps {}
@@ -8,10 +8,12 @@ interface ToolsGridProps {}
 export default function ToolsGrid({}: ToolsGridProps) {
   const getCategoryIcon = (icon: string) => {
     switch (icon) {
-      case 'video': return <Video size={32} />;
-      case 'image': return <ImageIcon size={32} />;
-      case 'file-text': return <FileText size={32} />;
-      default: return <FileText size={32} />;
+      case 'video': return <Video size={28} />;
+      case 'image': return <ImageIcon size={28} />;
+      case 'file-text': return <FileText size={28} />;
+      case 'music': return <Music size={28} />;
+      case 'archive': return <FileArchive size={28} />;
+      default: return <FileText size={28} />;
     }
   };
 
@@ -25,16 +27,18 @@ export default function ToolsGrid({}: ToolsGridProps) {
 
   return (
     <div className="tools-grid-section">
-      <h2 className="section-title">Supported Conversions</h2>
+      <h2 className="section-title">Explore Our Prism Engine</h2>
+      
       {Object.entries(TOOLS_DATA).map(([section, categories]) => (
         <section key={section} className="grid-section">
-          <h3 className="section-subtitle">{section}</h3>
+          <h3 className="section-subtitle">{section} Tools</h3>
           <div className="tools-grid">
             {categories.map((category: ToolCategory) => (
               <div key={category.name} className="category-column">
-                <div className="category-header">
+                <div className="category-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', marginBottom: '2rem' }}>
                   <div className="category-icon">{getCategoryIcon(category.icon)}</div>
-                  <h4 className="category-title">{category.name}</h4>
+                  <h4 className="category-title" style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.5rem' }}>{category.name}</h4>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-dim)', marginTop: '0.25rem' }}>High-performance processing</p>
                 </div>
                 <div className="tool-cards">
                   {category.items.slice(0, 8).map(tool => (
@@ -44,7 +48,10 @@ export default function ToolsGrid({}: ToolsGridProps) {
                       onClick={() => handleToolClick(tool)}
                     >
                       <span className="tool-name">{tool.name}</span>
-                      <ChevronRight size={20} className="tool-arrow" />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--primary-color)', background: 'rgba(99,102,241,0.1)', padding: '0.125rem 0.375rem', borderRadius: '4px' }}>4K</span>
+                        <ChevronRight size={18} className="tool-arrow" />
+                      </div>
                     </button>
                   ))}
                 </div>

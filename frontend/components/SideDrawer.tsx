@@ -76,7 +76,7 @@ export default function SideDrawer({ isOpen, onClose, onSelectTool }: SideDrawer
                         {user ? (
                             <div className="user-info">
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', color: 'var(--text-main)' }}>
-                                    <div style={{ padding: '0.5rem', background: 'rgba(255,255,255,0.05)', borderRadius: '50%', border: '1px solid var(--border-glass)' }}>
+                                    <div style={{ padding: '0.5rem', background: 'var(--bg-secondary)', borderRadius: '50%', border: '1px solid var(--border-glass)' }}>
                                         <User size={20} />
                                     </div>
                                     <span style={{ fontWeight: 700 }}>{user.username}</span>

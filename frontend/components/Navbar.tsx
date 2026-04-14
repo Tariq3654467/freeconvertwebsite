@@ -27,8 +27,8 @@ export default function Navbar() {
           <button
             className="menu-btn"
             style={{ 
-              background: 'rgba(255,255,255,0.05)', 
-              border: '1px solid rgba(255,255,255,0.1)', 
+              background: 'var(--bg-secondary)', 
+              border: '1px solid var(--border-glass)', 
               borderRadius: '8px',
               padding: '0.4rem',
               cursor: 'pointer', 

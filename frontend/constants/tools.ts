@@ -31,11 +31,16 @@ export const TOOLS_DATA: Record<string, ToolCategory[]> = {
       icon: "image",
       items: [
         { name: "Image Converter", id: "image-converter" },
+        { name: "WEBP to PNG", id: "webp-to-png", from: "webp", to: "png" },
+        { name: "JFIF to PNG", id: "jfif-to-png", from: "jfif", to: "png" },
+        { name: "PNG to SVG", id: "png-to-svg", from: "png", to: "svg" },
+        { name: "HEIC to JPG", id: "heic-to-jpg", from: "heic", to: "jpg" },
+        { name: "HEIC to PNG", id: "heic-to-png", from: "heic", to: "png" },
+        { name: "WEBP to JPG", id: "webp-to-jpg", from: "webp", to: "jpg" },
+        { name: "SVG Converter", id: "svg-converter", to: "svg" },
         { name: "PNG to JPG", id: "png-to-jpg", from: "png", to: "jpg" },
         { name: "JPG to PNG", id: "jpg-to-png", from: "jpg", to: "png" },
-        { name: "WebP to JPG", id: "webp-to-jpg", from: "webp", to: "jpg" },
         { name: "SVG to PNG", id: "svg-to-png", from: "svg", to: "png" },
-        { name: "Heic to JPG", id: "heic-to-jpg", from: "heic", to: "jpg" },
       ],
     },
     {

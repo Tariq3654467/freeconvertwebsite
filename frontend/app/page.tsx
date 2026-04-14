@@ -109,7 +109,7 @@ export default function Home() {
   return (
     <main className="main-container">
       <div className="hero-section">
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(99,102,241,0.1)', color: 'var(--primary-color)', padding: '0.5rem 1rem', borderRadius: '2rem', fontSize: '0.85rem', fontWeight: 700, marginBottom: '1.5rem', border: '1px solid rgba(99,102,241,0.2)' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(99,102,241,0.08)', color: 'var(--primary-color)', padding: '0.5rem 1rem', borderRadius: '2rem', fontSize: '0.85rem', fontWeight: 700, marginBottom: '1.5rem', border: '1px solid rgba(99,102,241,0.15)' }}>
           <Zap size={14} /> NEW: Prism Engine 2.0 is live!
         </div>
         <h1 className="hero-title">File Conversion,<br/>Refined.</h1>
@@ -178,7 +178,7 @@ export default function Home() {
               gap: '1rem', 
               marginBottom: '1.5rem', 
               padding: '1.25rem', 
-              background: 'rgba(255,255,255,0.05)', 
+              background: 'var(--bg-secondary)', 
               borderRadius: '12px', 
               border: '1px solid var(--border-glass)' 
             }}>
@@ -189,7 +189,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', background: 'rgba(255,255,255,0.03)', padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid var(--border-glass)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', background: 'var(--bg-secondary)', padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid var(--border-glass)' }}>
               <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-muted)' }}>Target Format:</span>
               <select
                 value={targetFormat}
@@ -197,7 +197,7 @@ export default function Home() {
                 style={{
                   padding: '0.5rem 1rem',
                   borderRadius: '8px',
-                  border: '1px solid rgba(255,255,255,0.1)',
+                  border: '1px solid var(--border-glass)',
                   background: 'var(--bg-secondary)',
                   color: 'var(--text-main)',
                   fontWeight: 600,

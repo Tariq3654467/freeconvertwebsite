@@ -4,7 +4,7 @@ from flask import Blueprint, request, jsonify, current_app, send_from_directory
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
 from PIL import Image
-import moviepy.editor as mp
+import moviepy as mp
 from pydub import AudioSegment
 from PyPDF2 import PdfReader, PdfWriter
 from docx import Document
@@ -12,17 +12,26 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from pdf2image import convert_from_path
 import io
+import pillow_heif
+import vtracer
+
+pillow_heif.register_heif_opener()
 
 from models import Job
 from extensions import db
 
 convert_bp = Blueprint('convert', __name__)
 
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'tiff', 'tif', 'svg', 'heic', 'pdf', 'docx', 'mp4', 'mp3', 'mov', 'avi', 'ogg', 'wav', 'm4a', 'flac'}
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'tiff', 'tif', 'svg', 'heic', 'jfif', 'pdf', 'docx', 'mp4', 'mp3', 'mov', 'avi', 'ogg', 'wav', 'm4a', 'flac'}
 
-IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'tiff', 'tif'}
+IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'tiff', 'tif', 'heic', 'jfif'}
 AUDIO_EXTENSIONS = {'mp3', 'ogg', 'wav', 'flac', 'm4a'}
 VIDEO_EXTENSIONS = {'mp4', 'mov', 'avi'}
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 @convert_bp.route('/upload', methods=['POST'])
 @jwt_required(optional=True)
@@ -81,12 +90,25 @@ def process_job(job_id):
         output_filename = f"{job.original_filename.rsplit('.', 1)[0]}.{target_ext}"
         output_path = os.path.join(current_app.config['UPLOAD_FOLDER'], output_filename)
         
-        if target_ext in IMAGE_EXTENSIONS:
-            # Image conversion
+        if target_ext in IMAGE_EXTENSIONS and original_ext == 'pdf':
+            # PDF to image (high priority check)
+            images = convert_from_path(input_path)
+            if images:
+                images[0].save(output_path)  # Save first page
+        elif target_ext == 'svg':
+            # Image to SVG (Vectorization)
+            if original_ext in IMAGE_EXTENSIONS:
+                vtracer.convert_image_to_svg_py(input_path, output_path)
+            else:
+                raise ValueError(f"Cannot convert {original_ext} to SVG")
+        elif target_ext in IMAGE_EXTENSIONS:
+            # Image to Image conversion
             with Image.open(input_path) as img:
-                if target_ext in ['jpg', 'jpeg'] and img.mode in ('RGBA', 'P'):
+                if target_ext in ['jpg', 'jpeg', 'jfif'] and img.mode in ('RGBA', 'P'):
                     img = img.convert('RGB')
-                img.save(output_path)
+                
+                format_map = {'jfif': 'JPEG'}
+                img.save(output_path, format=format_map.get(target_ext))
         elif target_ext in AUDIO_EXTENSIONS:
             # Audio conversion
             if original_ext in AUDIO_EXTENSIONS:
@@ -151,11 +173,6 @@ def process_job(job_id):
                 doc.save(output_path)
             else:
                 raise ValueError("Unsupported source for DOCX conversion")
-        elif target_ext in IMAGE_EXTENSIONS and original_ext == 'pdf':
-            # PDF to image
-            images = convert_from_path(input_path)
-            if images:
-                images[0].save(output_path)  # Save first page
         else:
             raise ValueError(f"Conversion from {original_ext} to {target_ext} not supported")
         
@@ -165,6 +182,9 @@ def process_job(job_id):
         return jsonify({'message': 'Job complete', 'job_id': job.id, 'status': 'done'}), 200
         
     except Exception as e:
+        import traceback
+        print(f"ERROR processing job {job_id}: {str(e)}")
+        traceback.print_exc()
         job.status = 'failed'
         db.session.commit()
         return jsonify({'message': f'Conversion failed: {str(e)}'}), 500

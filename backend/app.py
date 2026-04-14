@@ -1,4 +1,9 @@
 import os
+import static_ffmpeg
+
+# Initialize bundled ffmpeg as early as possible
+static_ffmpeg.add_paths()
+
 from flask import Flask
 from flask_cors import CORS
 from dotenv import load_dotenv

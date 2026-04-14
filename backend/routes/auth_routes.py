@@ -1,43 +1,50 @@
-from flask import Blueprint, request, jsonify
-from werkzeug.security import generate_password_hash, check_password_hash
-from flask_jwt_extended import create_access_token
-
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from database import get_db
 from models import User
-from extensions import db
+from schemas import UserCreate, UserResponse, Token, LoginRequest
+from security import get_password_hash, verify_password, create_access_token
 
-auth_bp = Blueprint('auth', __name__)
+router = APIRouter()
 
-@auth_bp.route('/signup', methods=['POST'])
-def signup():
-    data = request.get_json()
-    username = data.get('username')
-    email = data.get('email')
-    password = data.get('password')
+@router.post("/signup", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+def signup(user_in: UserCreate, db: Session = Depends(get_db)):
+    db_user = db.query(User).filter(
+        (User.username == user_in.username) | (User.email == user_in.email)
+    ).first()
+    if db_user:
+        raise HTTPException(
+            status_code=400,
+            detail="User with this username or email already exists"
+        )
     
-    if not username or not email or not password:
-        return jsonify({'message': 'Missing required fields'}), 400
-        
-    if User.query.filter_by(username=username).first() or User.query.filter_by(email=email).first():
-        return jsonify({'message': 'User already exists'}), 400
-        
-    hashed_password = generate_password_hash(password)
-    new_user = User(username=username, email=email, password_hash=hashed_password)
+    hashed_password = get_password_hash(user_in.password)
+    new_user = User(
+        username=user_in.username,
+        email=user_in.email,
+        password_hash=hashed_password
+    )
     
-    db.session.add(new_user)
-    db.session.commit()
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
     
-    return jsonify({'message': 'User created successfully'}), 201
+    return new_user
 
-@auth_bp.route('/login', methods=['POST'])
-def login():
-    data = request.get_json()
-    email = data.get('email')
-    password = data.get('password')
+@router.post("/login", response_model=Token)
+def login(login_data: LoginRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == login_data.email).first()
     
-    user = User.query.filter_by(email=email).first()
-    
-    if not user or not check_password_hash(user.password_hash, password):
-        return jsonify({'message': 'Invalid credentials'}), 401
+    if not user or not verify_password(login_data.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
         
-    access_token = create_access_token(identity=user.id)
-    return jsonify({'token': access_token, 'user': {'id': user.id, 'username': user.username, 'email': user.email}}), 200
+    access_token = create_access_token(data={"sub": str(user.id)})
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": user
+    }

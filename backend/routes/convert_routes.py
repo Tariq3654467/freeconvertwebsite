@@ -1,8 +1,17 @@
 import os
 import uuid
-from flask import Blueprint, request, jsonify, current_app, send_from_directory
-from flask_jwt_extended import jwt_required, get_jwt_identity
-from werkzeug.utils import secure_filename
+import shutil
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, BackgroundTasks
+from fastapi.responses import FileResponse
+from sqlalchemy.orm import Session
+from typing import List, Optional
+
+from database import get_db
+from models import Job, User
+from schemas import JobResponse
+from security import get_current_user
+
+# Conversion imports
 from PIL import Image
 import moviepy as mp
 from pydub import AudioSegment
@@ -11,19 +20,17 @@ from docx import Document
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from pdf2image import convert_from_path
-import io
 import pillow_heif
 import vtracer
 
 pillow_heif.register_heif_opener()
 
-from models import Job
-from extensions import db
+router = APIRouter()
 
-convert_bp = Blueprint('convert', __name__)
+UPLOAD_FOLDER = 'uploads'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'tiff', 'tif', 'svg', 'heic', 'jfif', 'pdf', 'docx', 'mp4', 'mp3', 'mov', 'avi', 'ogg', 'wav', 'm4a', 'flac'}
-
 IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'tiff', 'tif', 'heic', 'jfif'}
 AUDIO_EXTENSIONS = {'mp3', 'ogg', 'wav', 'flac', 'm4a'}
 VIDEO_EXTENSIONS = {'mp4', 'mov', 'avi'}
@@ -32,89 +39,45 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def perform_conversion(job_id: int, db_session_factory):
+    # We need a new session since this runs in a background thread
+    db = db_session_factory()
+    job = db.query(Job).get(job_id)
+    if not job:
+        db.close()
+        return
 
-@convert_bp.route('/upload', methods=['POST'])
-@jwt_required(optional=True)
-def upload_file():
-    if 'file' not in request.files:
-        return jsonify({'message': 'No file part'}), 400
-        
-    file = request.files['file']
-    target_format = request.form.get('target_format', '').lower()
-    
-    if file.filename == '':
-        return jsonify({'message': 'No selected file'}), 400
-        
-    if not target_format or target_format not in ALLOWED_EXTENSIONS:
-        return jsonify({'message': 'Invalid target format'}), 400
-        
-    if file and allowed_file(file.filename):
-        user_identity = get_jwt_identity()
-        original_filename = secure_filename(file.filename)
-        
-        # Save original file
-        unique_id = str(uuid.uuid4())
-        ext = original_filename.rsplit('.', 1)[1].lower()
-        save_name = f"{unique_id}.{ext}"
-        filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], save_name)
-        file.save(filepath)
-        
-        # Create job
-        new_job = Job(
-            user_id=user_identity,
-            original_filename=save_name,
-            target_format=target_format,
-            status='pending'
-        )
-        db.session.add(new_job)
-        db.session.commit()
-        
-        return jsonify({'message': 'File uploaded', 'job_id': new_job.id}), 201
-        
-    return jsonify({'message': 'File type not allowed'}), 400
-
-@convert_bp.route('/process/<int:job_id>', methods=['POST'])
-def process_job(job_id):
-    job = Job.query.get_or_404(job_id)
-    if job.status != 'pending':
-         return jsonify({'message': 'Job already processed'}), 400
-         
-    job.status = 'processing'
-    db.session.commit()
-    
     try:
-        input_path = os.path.join(current_app.config['UPLOAD_FOLDER'], job.original_filename)
+        job.status = 'processing'
+        db.commit()
+
+        input_path = os.path.join(UPLOAD_FOLDER, job.original_filename)
         original_ext = job.original_filename.rsplit('.', 1)[1].lower()
         target_ext = job.target_format
         
         output_filename = f"{job.original_filename.rsplit('.', 1)[0]}.{target_ext}"
-        output_path = os.path.join(current_app.config['UPLOAD_FOLDER'], output_filename)
+        output_path = os.path.join(UPLOAD_FOLDER, output_filename)
         
+        # --- Conversion Logic ---
         if target_ext in IMAGE_EXTENSIONS and original_ext == 'pdf':
-            # PDF to image (high priority check)
             images = convert_from_path(input_path)
             if images:
-                images[0].save(output_path)  # Save first page
+                images[0].save(output_path)
         elif target_ext == 'svg':
-            # Image to SVG (Vectorization)
             if original_ext in IMAGE_EXTENSIONS:
                 vtracer.convert_image_to_svg_py(input_path, output_path)
             else:
                 raise ValueError(f"Cannot convert {original_ext} to SVG")
         elif target_ext in IMAGE_EXTENSIONS:
-            # Image to Image conversion
             with Image.open(input_path) as img:
                 if target_ext in ['jpg', 'jpeg', 'jfif'] and img.mode in ('RGBA', 'P'):
                     img = img.convert('RGB')
-                
                 format_map = {'jfif': 'JPEG'}
                 img.save(output_path, format=format_map.get(target_ext))
         elif target_ext in AUDIO_EXTENSIONS:
-            # Audio conversion
             if original_ext in AUDIO_EXTENSIONS:
                 audio = AudioSegment.from_file(input_path)
             elif original_ext in VIDEO_EXTENSIONS:
-                # Extract audio from video
                 video = mp.VideoFileClip(input_path)
                 audio_path = input_path.replace('.' + original_ext, '_temp.wav')
                 video.audio.write_audiofile(audio_path)
@@ -124,19 +87,8 @@ def process_job(job_id):
             else:
                 raise ValueError("Unsupported source for audio conversion")
             
-            # Export to target format
-            if target_ext == 'mp3':
-                audio.export(output_path, format='mp3')
-            elif target_ext == 'wav':
-                audio.export(output_path, format='wav')
-            elif target_ext == 'ogg':
-                audio.export(output_path, format='ogg')
-            elif target_ext == 'flac':
-                audio.export(output_path, format='flac')
-            elif target_ext == 'm4a':
-                audio.export(output_path, format='m4a')
+            audio.export(output_path, format=target_ext)
         elif target_ext in VIDEO_EXTENSIONS:
-            # Video conversion (basic)
             if original_ext in VIDEO_EXTENSIONS:
                 video = mp.VideoFileClip(input_path)
                 video.write_videofile(output_path)
@@ -145,7 +97,6 @@ def process_job(job_id):
                 raise ValueError("Unsupported source for video conversion")
         elif target_ext == 'pdf':
             if original_ext == 'docx':
-                # DOCX to PDF
                 doc = Document(input_path)
                 c = canvas.Canvas(output_path, pagesize=letter)
                 width, height = letter
@@ -157,14 +108,12 @@ def process_job(job_id):
                         height = letter[1]
                 c.save()
             elif original_ext in IMAGE_EXTENSIONS:
-                # Image to PDF
                 img = Image.open(input_path)
                 img.convert('RGB').save(output_path, 'PDF')
             else:
                 raise ValueError("Unsupported source for PDF conversion")
         elif target_ext == 'docx':
             if original_ext == 'pdf':
-                # PDF to DOCX (basic text extraction)
                 reader = PdfReader(input_path)
                 doc = Document()
                 for page in reader.pages:
@@ -175,37 +124,85 @@ def process_job(job_id):
                 raise ValueError("Unsupported source for DOCX conversion")
         else:
             raise ValueError(f"Conversion from {original_ext} to {target_ext} not supported")
-        
+
         job.status = 'done'
         job.result_filename = output_filename
-        db.session.commit()
-        return jsonify({'message': 'Job complete', 'job_id': job.id, 'status': 'done'}), 200
-        
+        db.commit()
+
     except Exception as e:
-        import traceback
         print(f"ERROR processing job {job_id}: {str(e)}")
-        traceback.print_exc()
         job.status = 'failed'
-        db.session.commit()
-        return jsonify({'message': f'Conversion failed: {str(e)}'}), 500
+        db.commit()
+    finally:
+        db.close()
 
-@convert_bp.route('/status/<int:job_id>', methods=['GET'])
-def get_status(job_id):
-    job = Job.query.get_or_404(job_id)
-    return jsonify({
-        'job_id': job.id,
-        'status': job.status,
-        'original_filename': job.original_filename,
-        'target_format': job.target_format
-    }), 200
+@router.post("/upload", response_model=JobResponse, status_code=status.HTTP_201_CREATED)
+async def upload_file(
+    target_format: str = Form(...),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user)
+):
+    if not allowed_file(file.filename):
+        raise HTTPException(status_code=400, detail="File type not allowed")
+        
+    if target_format.lower() not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Invalid target format")
 
-@convert_bp.route('/download/<int:job_id>', methods=['GET'])
-def download_file(job_id):
-    job = Job.query.get_or_404(job_id)
-    if job.status == 'done' and job.result_filename:
-        return send_from_directory(
-            os.path.abspath(current_app.config['UPLOAD_FOLDER']), 
-            job.result_filename, 
-            as_attachment=True
-        )
-    return jsonify({'message': 'File not ready or job failed'}), 400
+    unique_id = str(uuid.uuid4())
+    ext = file.filename.rsplit('.', 1)[1].lower()
+    save_name = f"{unique_id}.{ext}"
+    filepath = os.path.join(UPLOAD_FOLDER, save_name)
+
+    with open(filepath, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    new_job = Job(
+        user_id=current_user.id if current_user else None,
+        original_filename=save_name,
+        target_format=target_format.lower(),
+        status='pending'
+    )
+    db.add(new_job)
+    db.commit()
+    db.refresh(new_job)
+    
+    return new_job
+
+@router.post("/process/{job_id}")
+async def process_job(
+    job_id: int, 
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+        
+    if job.status != 'pending':
+        return {"message": "Job already processed", "status": job.status}
+    
+    # Needs a session factory for the background task
+    from database import SessionLocal
+    background_tasks.add_task(perform_conversion, job_id, SessionLocal)
+    
+    return {"message": "Conversion started", "job_id": job_id}
+
+@router.get("/status/{job_id}", response_model=JobResponse)
+async def get_status(job_id: int, db: Session = Depends(get_db)):
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job
+
+@router.get("/download/{job_id}")
+async def download_file(job_id: int, db: Session = Depends(get_db)):
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+        
+    if job.status != 'done' or not job.result_filename:
+        raise HTTPException(status_code=400, detail="File not ready or job failed")
+        
+    filepath = os.path.abspath(os.path.join(UPLOAD_FOLDER, job.result_filename))
+    return FileResponse(filepath, filename=job.result_filename, media_type='application/octet-stream')

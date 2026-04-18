@@ -197,12 +197,14 @@ def compress_job(job_id):
     try:
         data = request.get_json(silent=True) or {}
         quality = int(data.get('quality', 70))
+        preset = data.get('preset', 'balanced')
+        resize_percent = int(data.get('resize_percent', 100))
         upload_folder = get_upload_folder()
         input_path = os.path.join(upload_folder, job.original_filename)
         original_ext = job.original_filename.rsplit('.', 1)[1].lower()
 
         output_filename, output_path = _compress_file(
-            input_path, original_ext, upload_folder, quality
+            input_path, original_ext, upload_folder, quality, preset, resize_percent
         )
 
         job.status = 'done'
@@ -494,11 +496,11 @@ def _image_to_docx(input_path, output_path):
 
 # ── Compression helpers ───────────────────────
 
-def _compress_file(input_path, original_ext, upload_folder, quality=None):
+def _compress_file(input_path, original_ext, upload_folder, quality=None, preset='balanced', resize_percent=100):
     unique_id = str(uuid.uuid4())
 
     if original_ext in IMAGE_EXTENSIONS:
-        return _compress_image(input_path, original_ext, upload_folder, unique_id, quality or 70)
+        return _compress_image(input_path, original_ext, upload_folder, unique_id, quality or 70, resize_percent)
     elif original_ext == 'pdf':
         return _compress_pdf(input_path, upload_folder, unique_id, quality or 70)
     elif original_ext in AUDIO_EXTENSIONS:
@@ -509,12 +511,18 @@ def _compress_file(input_path, original_ext, upload_folder, quality=None):
         raise ValueError(f"Compression not supported for {original_ext}")
 
 
-def _compress_image(input_path, original_ext, upload_folder, unique_id, quality):
+def _compress_image(input_path, original_ext, upload_folder, unique_id, quality, resize_percent=100):
     output_ext = original_ext if original_ext not in ('heic', 'jfif') else 'jpg'
     output_filename = f"{unique_id}_compressed.{output_ext}"
     output_path = os.path.join(upload_folder, output_filename)
 
     with Image.open(input_path) as img:
+        # Resize if needed
+        if resize_percent < 100:
+            new_width = int(img.width * resize_percent / 100)
+            new_height = int(img.height * resize_percent / 100)
+            img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
         # Flatten transparency for JPEG
         if output_ext in ('jpg', 'jpeg') and img.mode in ('RGBA', 'P', 'LA'):
             bg = Image.new('RGB', img.size, (255, 255, 255))

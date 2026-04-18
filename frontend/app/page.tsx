@@ -5,7 +5,7 @@ import axios from 'axios';
 import {
   ChevronDown, Upload, Cloud, Link as LinkIcon, HardDrive,
   FileText, Download, CheckCircle2, AlertCircle, Loader2,
-  ShieldCheck, Zap, Lock, Layers, Settings2, X
+  ShieldCheck, Zap, Lock, Settings2, X
 } from 'lucide-react';
 import Link from 'next/link';
 import ToolsGrid from '../components/ToolsGrid';
@@ -46,7 +46,10 @@ export default function Home() {
   const [targetFormat, setTargetFormat] = useState('png');
   const [mode, setMode] = useState<Mode>('convert');
   const [quality, setQuality] = useState(75);
+  const [compressionPreset, setCompressionPreset] = useState<'high' | 'balanced' | 'small' | 'custom'>('balanced');
+  const [resizePercent, setResizePercent] = useState(100);
   const [showSettings, setShowSettings] = useState(false);
+
 
   const [status, setStatus] = useState('');
   const [statusType, setStatusType] = useState<'info' | 'success' | 'error' | 'processing'>('info');
@@ -78,7 +81,7 @@ export default function Home() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
     const chosen = Array.from(e.target.files);
-    setFiles(mode === 'merge' ? chosen : chosen.slice(0, 1));
+    setFiles(chosen.slice(0, 1));
     setStatus('');
     setDownloadLink('');
   };
@@ -130,31 +133,14 @@ export default function Home() {
       const { data } = await axios.post(`${API}/api/convert/upload`, formData);
       // Use dedicated compress endpoint
       setStatus('Compressing…');
-      await axios.post(`${API}/api/convert/compress/${data.job_id}`, { quality });
+      await axios.post(`${API}/api/convert/compress/${data.job_id}`, {
+        quality,
+        preset: compressionPreset,
+        resize_percent: resizePercent
+      });
       pollStatus(data.job_id);
     } catch {
       setStatus('Compression failed.');
-      setStatusType('error');
-    }
-  };
-
-  // ── MERGE PDF ─────────────────────────────────────────────────────────────
-  const handleMerge = async () => {
-    if (files.length < 2) {
-      setStatus('Select at least 2 PDF files to merge.');
-      setStatusType('error');
-      return;
-    }
-    try {
-      setStatus('Uploading…');
-      setStatusType('processing');
-      const formData = new FormData();
-      files.forEach(f => formData.append('files', f));
-
-      const { data } = await axios.post(`${API}/api/convert/upload-multiple`, formData);
-      await runProcess(data.job_id);
-    } catch {
-      setStatus('Merge failed.');
       setStatusType('error');
     }
   };
@@ -177,9 +163,9 @@ export default function Home() {
     }
   };
 
-  const modeLabel = mode === 'compress' ? 'Compress' : mode === 'merge' ? 'Merge PDFs' : 'Convert';
-  const actionLabel = mode === 'compress' ? 'Compress Now' : mode === 'merge' ? 'Merge Now' : 'Convert Now';
-  const onAction = mode === 'compress' ? handleCompress : mode === 'merge' ? handleMerge : handleConvert;
+  const modeLabel = mode === 'compress' ? 'Compress' : 'Convert';
+  const actionLabel = mode === 'compress' ? 'Compress Now' : 'Convert Now';
+  const onAction = mode === 'compress' ? handleCompress : handleConvert;
 
   return (
     <main className="main-container">
@@ -190,8 +176,8 @@ export default function Home() {
         </div>
         <h1 className="hero-title">File Conversion,<br />Refined.</h1>
         <p className="hero-subtitle">
-          Convert, compress, or merge any file — images, audio, video, PDFs and documents.
-          Fast, private, powered by Prism Engine.
+          Convert or compress any file — images, audio, video, PDFs and documents.
+          Fast, private, and built for focused workflows.
         </p>
         <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginBottom: '4rem', opacity: 0.7 }}>
           {[['ShieldCheck', 'SSL Encrypted'], ['Lock', 'Private Processing'], ['Download', '10k+ Files Daily']].map(([, label]) => (
@@ -242,8 +228,8 @@ export default function Home() {
         {/* Choose button */}
         <div className="choose-btn-group">
           <button className="btn-choose" onClick={() => { fileInputRef.current?.click(); setIsDropdownOpen(false); }}>
-            {mode === 'merge' ? <Layers size={24} /> : <Upload size={24} />}
-            {mode === 'merge' ? 'Choose PDFs' : 'Choose File'}
+            <Upload size={24} />
+            Choose File
           </button>
           {mode === 'convert' && (
             <button className="btn-dropdown" onClick={() => setIsDropdownOpen(!isDropdownOpen)}>
@@ -278,16 +264,6 @@ export default function Home() {
               </div>
             ))}
 
-            {/* Add more PDFs button (merge mode) */}
-            {mode === 'merge' && (
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                style={{ width: '100%', padding: '0.75rem', marginBottom: '1rem', background: 'transparent', border: '1px dashed var(--border-glow)', borderRadius: '10px', color: 'var(--primary-color)', fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem' }}
-              >
-                + Add More PDFs
-              </button>
-            )}
-
             {/* Target format selector (convert only) */}
             {mode === 'convert' && (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', background: 'var(--bg-secondary)', padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid var(--border-glass)' }}>
@@ -308,7 +284,7 @@ export default function Home() {
               </div>
             )}
 
-            {/* Compression quality slider */}
+            {/* Compression settings */}
             {mode === 'compress' && (
               <div style={{ marginBottom: '1.25rem' }}>
                 <button
@@ -319,20 +295,82 @@ export default function Home() {
                 </button>
                 {showSettings && (
                   <div style={{ background: 'var(--bg-secondary)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border-glass)' }}>
-                    <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '0.5rem' }}>
-                      Quality: {quality}%
-                    </label>
-                    <input
-                      type="range"
-                      min={10}
-                      max={95}
-                      value={quality}
-                      onChange={e => setQuality(Number(e.target.value))}
-                      style={{ width: '100%', accentColor: 'var(--primary-color)' }}
-                    />
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-dim)' }}>
-                      <span>Smaller file</span>
-                      <span>Better quality</span>
+                    {/* Compression Presets */}
+                    <div style={{ marginBottom: '1rem' }}>
+                      <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '0.5rem' }}>
+                        Preset:
+                      </label>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        {[
+                          { key: 'high', label: 'High Quality', quality: 90 },
+                          { key: 'balanced', label: 'Balanced', quality: 75 },
+                          { key: 'small', label: 'Small Size', quality: 50 }
+                        ].map(preset => (
+                          <button
+                            key={preset.key}
+                            onClick={() => {
+                              setCompressionPreset(preset.key as any);
+                              setQuality(preset.quality);
+                            }}
+                            style={{
+                              padding: '0.5rem 1rem',
+                              borderRadius: '8px',
+                              border: '1px solid',
+                              borderColor: compressionPreset === preset.key ? 'var(--primary-color)' : 'var(--border-glass)',
+                              background: compressionPreset === preset.key ? 'rgba(99,102,241,0.1)' : 'transparent',
+                              color: compressionPreset === preset.key ? 'var(--primary-color)' : 'var(--text-main)',
+                              fontWeight: 600,
+                              fontSize: '0.8rem',
+                              cursor: 'pointer',
+                              flex: 1
+                            }}
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Custom Quality Slider */}
+                    <div style={{ marginBottom: '1rem' }}>
+                      <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '0.5rem' }}>
+                        Quality: {quality}%
+                      </label>
+                      <input
+                        type="range"
+                        min={10}
+                        max={95}
+                        value={quality}
+                        onChange={e => {
+                          setQuality(Number(e.target.value));
+                          setCompressionPreset('custom' as any); // Mark as custom
+                        }}
+                        style={{ width: '100%', accentColor: 'var(--primary-color)' }}
+                      />
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+                        <span>Smaller file</span>
+                        <span>Better quality</span>
+                      </div>
+                    </div>
+
+                    {/* Resize Option (for images) */}
+                    <div>
+                      <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '0.5rem' }}>
+                        Resize: {resizePercent}%
+                      </label>
+                      <input
+                        type="range"
+                        min={10}
+                        max={100}
+                        step={10}
+                        value={resizePercent}
+                        onChange={e => setResizePercent(Number(e.target.value))}
+                        style={{ width: '100%', accentColor: 'var(--primary-color)' }}
+                      />
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+                        <span>Smaller</span>
+                        <span>Original</span>
+                      </div>
                     </div>
                   </div>
                 )}

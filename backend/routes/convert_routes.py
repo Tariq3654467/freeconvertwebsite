@@ -7,7 +7,7 @@ from flask import Blueprint, request, jsonify, current_app, send_from_directory
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
 from PIL import Image
-from moviepy import VideoFileClip
+from moviepy.video.io.VideoFileClip import VideoFileClip
 from pydub import AudioSegment
 from PyPDF2 import PdfReader, PdfWriter
 from docx import Document

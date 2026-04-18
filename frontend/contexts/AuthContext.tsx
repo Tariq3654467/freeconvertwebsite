@@ -3,11 +3,18 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { jwtDecode } from 'jwt-decode';
 
+interface DecodedToken {
+  sub: string;        // user id (string)
+  username: string;   // additional claim
+  email: string;      // additional claim
+  exp: number;
+  iat: number;
+}
+
 interface User {
   id: number;
   username: string;
   email: string;
-  exp: number;
 }
 
 interface AuthContextType {
@@ -20,35 +27,44 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function tokenToUser(token: string): User | null {
+  try {
+    const decoded = jwtDecode<DecodedToken>(token);
+    if (decoded.exp * 1000 < Date.now()) return null;
+    return {
+      id: parseInt(decoded.sub, 10),
+      username: decoded.username,
+      email: decoded.email,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
 
+  // Restore session on mount
   useEffect(() => {
-    const savedToken = localStorage.getItem('token');
-    if (savedToken) {
-      try {
-        const decoded = jwtDecode<User>(savedToken);
-        if (decoded.exp * 1000 > Date.now()) {
-          setToken(savedToken);
-          setUser(decoded);
-        } else {
-          localStorage.removeItem('token');
-        }
-      } catch {
+    const saved = localStorage.getItem('token');
+    if (saved) {
+      const u = tokenToUser(saved);
+      if (u) {
+        setToken(saved);
+        setUser(u);
+      } else {
         localStorage.removeItem('token');
       }
     }
   }, []);
 
   const login = useCallback((newToken: string) => {
-    localStorage.setItem('token', newToken);
-    try {
-      const decoded = jwtDecode<User>(newToken);
+    const u = tokenToUser(newToken);
+    if (u) {
+      localStorage.setItem('token', newToken);
       setToken(newToken);
-      setUser(decoded);
-    } catch {
-      logout();
+      setUser(u);
     }
   }, []);
 
@@ -66,10 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  return ctx;
 }
-

@@ -1,50 +1,79 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from database import get_db
+from flask import Blueprint, request, jsonify
+from flask_jwt_extended import create_access_token
+from extensions import db
 from models import User
-from schemas import UserCreate, UserResponse, Token, LoginRequest
-from security import get_password_hash, verify_password, create_access_token
+from security import get_password_hash, verify_password
 
-router = APIRouter()
+auth_bp = Blueprint('auth', __name__)
 
-@router.post("/signup", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-def signup(user_in: UserCreate, db: Session = Depends(get_db)):
-    db_user = db.query(User).filter(
-        (User.username == user_in.username) | (User.email == user_in.email)
+
+@auth_bp.route('/signup', methods=['POST'])
+def signup():
+    data = request.get_json()
+    if not data:
+        return jsonify({'message': 'No data provided'}), 400
+
+    username = data.get('username', '').strip()
+    email = data.get('email', '').strip().lower()
+    password = data.get('password', '')
+
+    if not username or not email or not password:
+        return jsonify({'message': 'username, email and password are required'}), 400
+
+    if len(password) < 6:
+        return jsonify({'message': 'Password must be at least 6 characters'}), 400
+
+    existing = db.session.query(User).filter(
+        (User.username == username) | (User.email == email)
     ).first()
-    if db_user:
-        raise HTTPException(
-            status_code=400,
-            detail="User with this username or email already exists"
-        )
-    
-    hashed_password = get_password_hash(user_in.password)
-    new_user = User(
-        username=user_in.username,
-        email=user_in.email,
-        password_hash=hashed_password
-    )
-    
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    
-    return new_user
+    if existing:
+        return jsonify({'message': 'User with this username or email already exists'}), 400
 
-@router.post("/login", response_model=Token)
-def login(login_data: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == login_data.email).first()
-    
-    if not user or not verify_password(login_data.password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-        
-    access_token = create_access_token(data={"sub": str(user.id)})
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": user
-    }
+    user = User(
+        username=username,
+        email=email,
+        password_hash=get_password_hash(password)
+    )
+    db.session.add(user)
+    db.session.commit()
+
+    return jsonify({
+        'message': 'Account created successfully',
+        'user': {'id': user.id, 'username': user.username, 'email': user.email}
+    }), 201
+
+
+@auth_bp.route('/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    if not data:
+        return jsonify({'message': 'No data provided'}), 400
+
+    email = data.get('email', '').strip().lower()
+    password = data.get('password', '')
+
+    if not email or not password:
+        return jsonify({'message': 'email and password are required'}), 400
+
+    user = db.session.query(User).filter_by(email=email).first()
+    if not user or not verify_password(password, user.password_hash):
+        return jsonify({'message': 'Invalid credentials'}), 401
+
+    # Embed username + email in token so frontend can decode them
+    access_token = create_access_token(
+        identity=str(user.id),
+        additional_claims={
+            'username': user.username,
+            'email': user.email
+        }
+    )
+
+    return jsonify({
+        'access_token': access_token,
+        'token_type': 'bearer',
+        'user': {
+            'id': user.id,
+            'username': user.username,
+            'email': user.email
+        }
+    }), 200

@@ -39,7 +39,7 @@ const COMPRESS_IDS = new Set([
   'compress-pdf',
 ]);
 
-type Mode = 'convert' | 'compress' | 'merge';
+type Mode = 'convert' | 'compress';
 
 export default function Home() {
   const [files, setFiles] = useState<File[]>([]);
@@ -54,7 +54,6 @@ export default function Home() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const mergeInputRef = useRef<HTMLInputElement>(null);
 
   // Listen for tool-grid selections
   useEffect(() => {
@@ -63,8 +62,6 @@ export default function Home() {
       const tool = e.detail;
       if (COMPRESS_IDS.has(tool.id)) {
         setMode('compress');
-      } else if (tool.id === 'merge-pdf') {
-        setMode('merge');
       } else {
         setMode('convert');
         if (tool.to) setTargetFormat(tool.to);
@@ -210,7 +207,7 @@ export default function Home() {
 
       {/* ── Mode tabs ── */}
       <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-        {(['convert', 'compress', 'merge'] as Mode[]).map(m => (
+        {(['convert', 'compress'] as Mode[]).map(m => (
           <button
             key={m}
             onClick={() => { setMode(m); setFiles([]); setStatus(''); setDownloadLink(''); }}
@@ -227,7 +224,7 @@ export default function Home() {
               textTransform: 'capitalize',
             }}
           >
-            {m === 'merge' ? 'Merge PDF' : m.charAt(0).toUpperCase() + m.slice(1)}
+            {m.charAt(0).toUpperCase() + m.slice(1)}
           </button>
         ))}
       </div>
@@ -239,16 +236,6 @@ export default function Home() {
           type="file"
           ref={fileInputRef}
           style={{ display: 'none' }}
-          accept={mode === 'merge' ? '.pdf' : undefined}
-          multiple={mode === 'merge'}
-          onChange={handleFileChange}
-        />
-        <input
-          type="file"
-          ref={mergeInputRef}
-          style={{ display: 'none' }}
-          accept=".pdf"
-          multiple
           onChange={handleFileChange}
         />
 

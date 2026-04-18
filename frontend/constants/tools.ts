@@ -50,7 +50,6 @@ export const TOOLS_DATA: Record<string, ToolCategory[]> = {
         { name: "PDF to Word", id: "pdf-to-word", from: "pdf", to: "docx" },
         { name: "Word to PDF", id: "word-to-pdf", from: "docx", to: "pdf" },
         { name: "PDF to JPG", id: "pdf-to-jpg", from: "pdf", to: "jpg" },
-        { name: "Merge PDF", id: "merge-pdf" },
         { name: "Compress PDF", id: "compress-pdf" },
       ],
     },

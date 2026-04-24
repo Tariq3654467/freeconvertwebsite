@@ -1,4 +1,4 @@
-# Auth State Fix - Progress Tracker
+g# Auth State Fix - Progress Tracker
 
 ## Plan Steps:
 

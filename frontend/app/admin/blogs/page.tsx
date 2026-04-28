@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import { Plus, Edit2, Trash2, Eye, Loader2 } from 'lucide-react';
+import { Plus, CreditCard as Edit2, Trash2, Eye, Loader as Loader2 } from 'lucide-react';
 
 const API = 'http://127.0.0.1:5000';
 

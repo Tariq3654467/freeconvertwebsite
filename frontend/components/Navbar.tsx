@@ -50,6 +50,15 @@ export default function Navbar() {
         </div>
 
         <div className="nav-links" style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+          <Link href="/blog" style={{
+            fontSize: '0.9rem',
+            fontWeight: 600,
+            color: 'var(--text-muted)',
+            textDecoration: 'none',
+            transition: 'color 0.2s'
+          }}>
+            Blog
+          </Link>
           {isAuthenticated ? (
             <>
               <Link href="/profile" style={{ 

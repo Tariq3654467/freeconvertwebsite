@@ -1,6 +1,7 @@
 import Navbar from '../components/Navbar'
 import { AuthProvider } from '../contexts/AuthContext'
 import './globals.css'
+import '../styles/admin.css'
 
 export const metadata = {
   title: 'FreeConvert | File Converter',

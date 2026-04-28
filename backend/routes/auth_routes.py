@@ -59,12 +59,12 @@ def login():
     if not user or not verify_password(password, user.password_hash):
         return jsonify({'message': 'Invalid credentials'}), 401
 
-    # Embed username + email in token so frontend can decode them
     access_token = create_access_token(
         identity=str(user.id),
         additional_claims={
             'username': user.username,
-            'email': user.email
+            'email': user.email,
+            'is_admin': user.is_admin
         }
     )
 

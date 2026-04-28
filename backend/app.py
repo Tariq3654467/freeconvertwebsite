@@ -13,6 +13,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from models import db, Job
 from routes.auth_routes import auth_bp
 from routes.convert_routes import convert_bp
+from routes.admin_routes import admin_bp
 from extensions import jwt
 from security import SECRET_KEY, ACCESS_TOKEN_EXPIRE_MINUTES
 
@@ -38,6 +39,7 @@ def create_app():
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(convert_bp, url_prefix='/api/convert')
+    app.register_blueprint(admin_bp, url_prefix='/api/admin')
 
     with app.app_context():
         db.create_all()

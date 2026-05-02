@@ -36,7 +36,7 @@ export default function Login() {
         email,
         password
       });
-      login(response.data.token);
+      login(response.data.access_token);
       setMessage('Login successful! Redirecting...');
       setTimeout(() => router.push('/'), 1500);
     } catch (err: any) {

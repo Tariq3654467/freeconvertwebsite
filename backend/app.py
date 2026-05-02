@@ -10,7 +10,7 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from models import db, Job
+from models import db, Job, User, Admin
 from routes.auth_routes import auth_bp
 from routes.convert_routes import convert_bp
 from routes.admin_routes import admin_bp
@@ -43,10 +43,30 @@ def create_app():
 
     with app.app_context():
         db.create_all()
+        ensure_admin_user(app)
         # Initialize scheduler for file cleanup
         init_scheduler(app)
 
     return app
+
+
+def ensure_admin_user(app):
+    """Ensure the configured admin email has admin privileges."""
+    admin_email = os.getenv('ADMIN_EMAIL', 'tariq.devp@gmail.com').strip().lower()
+    if not admin_email:
+        return
+
+    with app.app_context():
+        user = User.query.filter_by(email=admin_email).first()
+        if user:
+            if not user.is_admin:
+                user.is_admin = True
+
+            if not user.admin_profile:
+                admin_profile = Admin(user_id=user.id, role='moderator')
+                db.session.add(admin_profile)
+
+            db.session.commit()
 
 
 def cleanup_old_files(app):

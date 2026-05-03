@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { CreditCard as Edit2, Trash2, CircleCheck as CheckCircle2, Circle, Loader as Loader2 } from 'lucide-react';
+import { Trash2, CircleCheck as CheckCircle2, Circle, Loader2 } from 'lucide-react';
 
 const API = 'http://127.0.0.1:5000';
 
@@ -77,8 +77,10 @@ export default function UsersPage() {
   return (
     <div className="admin-page">
       <div className="admin-page-header">
-        <h1 className="admin-page-title">User Management</h1>
-        <p className="admin-page-subtitle">Manage registered users and permissions</p>
+        <div>
+          <h1 className="admin-page-title">Authors</h1>
+          <p className="admin-page-subtitle">Registered accounts, roles, and access.</p>
+        </div>
       </div>
 
       <div className="admin-table-container">
@@ -113,7 +115,7 @@ export default function UsersPage() {
                     className="admin-action-btn admin-action-toggle"
                     title={user.is_admin ? 'Remove Admin' : 'Make Admin'}
                   >
-                    {actionLoading === user.id ? <Loader2 size={16} /> : (user.is_admin ? <CheckCircle2 size={16} /> : <Circle size={16} />)}
+                    {actionLoading === user.id ? <Loader2 size={16} className="animate-spin" /> : (user.is_admin ? <CheckCircle2 size={16} /> : <Circle size={16} />)}
                   </button>
                   <button
                     onClick={() => deleteUser(user.id)}
@@ -121,7 +123,7 @@ export default function UsersPage() {
                     className="admin-action-btn admin-action-delete"
                     title="Delete user"
                   >
-                    {actionLoading === user.id ? <Loader2 size={16} /> : <Trash2 size={16} />}
+                    {actionLoading === user.id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
                   </button>
                 </td>
               </tr>

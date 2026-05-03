@@ -4,9 +4,10 @@ import { createContext, useContext, useState, useEffect, ReactNode, useCallback 
 import { jwtDecode } from 'jwt-decode';
 
 interface DecodedToken {
-  sub: string;        // user id (string)
-  username: string;   // additional claim
-  email: string;      // additional claim
+  sub: string;
+  username: string;
+  email: string;
+  is_admin: boolean;
   exp: number;
   iat: number;
 }
@@ -15,6 +16,7 @@ interface User {
   id: number;
   username: string;
   email: string;
+  is_admin: boolean;
 }
 
 interface AuthContextType {
@@ -35,6 +37,7 @@ function tokenToUser(token: string): User | null {
       id: parseInt(decoded.sub, 10),
       username: decoded.username,
       email: decoded.email,
+      is_admin: decoded.is_admin ?? false,
     };
   } catch {
     return null;
@@ -45,7 +48,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
 
-  // Restore session on mount
   useEffect(() => {
     const saved = localStorage.getItem('token');
     if (saved) {

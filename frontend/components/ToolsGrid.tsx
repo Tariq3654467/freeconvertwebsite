@@ -1,11 +1,14 @@
 "use client";
 
 import { Video, Image as ImageIcon, FileText, ChevronRight, Music, FileArchive } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { TOOLS_DATA, ToolCategory } from '../constants/tools';
 
 interface ToolsGridProps {}
 
 export default function ToolsGrid({}: ToolsGridProps) {
+  const router = useRouter();
+
   const getCategoryIcon = (icon: string) => {
     switch (icon) {
       case 'video': return <Video size={28} />;
@@ -18,11 +21,7 @@ export default function ToolsGrid({}: ToolsGridProps) {
   };
 
   const handleToolClick = (tool: any) => {
-    if (tool.to) {
-      const event = new CustomEvent('selectTool', { detail: tool });
-      window.dispatchEvent(event);
-    }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    router.push(`/convert/${tool.id}`);
   };
 
   return (

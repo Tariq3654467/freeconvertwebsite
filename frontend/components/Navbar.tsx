@@ -2,19 +2,17 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Menu, RefreshCw, User, LogOut } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Menu, RefreshCw, User, LogOut, ChevronDown } from 'lucide-react';
 import SideDrawer from './SideDrawer';
-import { ToolItem } from '../constants/tools';
+import { TOOLS_DATA } from '../constants/tools';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Navbar() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [activeMenu, setActiveMenu] = useState<'Convert' | 'Compress' | null>(null);
   const { user, logout, isAuthenticated } = useAuth();
-
-  const handleSelectTool = (tool: ToolItem) => {
-    const event = new CustomEvent('selectTool', { detail: tool });
-    window.dispatchEvent(event);
-  };
+  const router = useRouter();
 
   const handleLogout = () => {
     logout();
@@ -23,7 +21,7 @@ export default function Navbar() {
   return (
     <>
       <nav className="navbar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+        <div className="navbar-left">
           <button
             className="menu-btn"
             style={{ 
@@ -47,6 +45,43 @@ export default function Navbar() {
             </div>
             <span>PrismConvert</span>
           </Link>
+          <div className="navbar-left-tools">
+            {(['Convert', 'Compress'] as const).map((section) => (
+              <div
+                key={section}
+                className="nav-mega"
+                onMouseEnter={() => setActiveMenu(section)}
+                onMouseLeave={() => setActiveMenu(null)}
+              >
+                <button className="nav-mega-trigger">
+                  {section} <ChevronDown size={15} />
+                </button>
+                {activeMenu === section && (
+                  <div className="nav-mega-panel">
+                    {TOOLS_DATA[section].map((category) => (
+                      <div key={category.name} className="nav-mega-col">
+                        <h4>{category.name}</h4>
+                        <div>
+                          {category.items.slice(0, 8).map((tool) => (
+                            <button
+                              key={tool.id}
+                              className="nav-mega-link"
+                              onClick={() => {
+                                router.push(`/convert/${tool.id}`);
+                                setActiveMenu(null);
+                              }}
+                            >
+                              {tool.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="nav-links" style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
@@ -120,7 +155,6 @@ export default function Navbar() {
       <SideDrawer
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
-        onSelectTool={handleSelectTool}
       />
     </>
   );

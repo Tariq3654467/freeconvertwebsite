@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import { Plus, CreditCard as Edit2, Trash2, Eye, Loader as Loader2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Eye, Loader2 } from 'lucide-react';
 
 const API = 'http://127.0.0.1:5000';
 
@@ -66,12 +66,16 @@ export default function BlogsPage() {
   return (
     <div className="admin-page">
       <div className="admin-page-header">
-        <h1 className="admin-page-title">Blog Management</h1>
+        <div>
+          <h1 className="admin-page-title">Articles</h1>
+          <p className="admin-page-subtitle">Manage posts and publishing status.</p>
+        </div>
         <button
+          type="button"
           onClick={() => router.push('/admin/blogs/create')}
           className="admin-btn-primary"
         >
-          <Plus size={18} /> New Blog
+          <Plus size={18} strokeWidth={2} /> New Article
         </button>
       </div>
 
@@ -112,7 +116,7 @@ export default function BlogsPage() {
                     className="admin-action-btn admin-action-edit"
                     title="Edit blog"
                   >
-                    <Edit2 size={16} />
+                    <Pencil size={16} strokeWidth={1.75} />
                   </button>
                   <button
                     onClick={() => deleteBlog(blog.id)}
@@ -120,7 +124,7 @@ export default function BlogsPage() {
                     className="admin-action-btn admin-action-delete"
                     title="Delete blog"
                   >
-                    {actionLoading === blog.id ? <Loader2 size={16} /> : <Trash2 size={16} />}
+                    {actionLoading === blog.id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} strokeWidth={1.75} />}
                   </button>
                 </td>
               </tr>

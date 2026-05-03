@@ -1,20 +1,19 @@
 import os
 import uuid
 import io
-import struct
-import zlib
+import shutil
+import hmac
+import hashlib
+from datetime import datetime
 from flask import Blueprint, request, jsonify, current_app, send_from_directory
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
 from PIL import Image
 from moviepy.video.io.VideoFileClip import VideoFileClip
 from pydub import AudioSegment
-from PyPDF2 import PdfReader, PdfWriter
 from docx import Document
-from docx.shared import Inches, Pt, RGBColor
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import letter, A4
+from docx.shared import Inches
+from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -26,8 +25,9 @@ import re
 
 pillow_heif.register_heif_opener()
 
-from models import Job
+from models import Job, AnonymousDailyUsage
 from extensions import db
+from security import SECRET_KEY
 
 convert_bp = Blueprint('convert', __name__)
 
@@ -42,12 +42,84 @@ AUDIO_EXTENSIONS = {'mp3', 'ogg', 'wav', 'flac', 'm4a'}
 VIDEO_EXTENSIONS = {'mp4', 'mov', 'avi', 'mkv', 'wmv', 'webm'}
 
 
+def _pil_format_for_target(target_ext: str) -> str:
+    """Map file extension to Pillow format name (HEIC files use HEIF encoder)."""
+    return {
+        'jpg': 'JPEG',
+        'jpeg': 'JPEG',
+        'jfif': 'JPEG',
+        'tif': 'TIFF',
+        'tiff': 'TIFF',
+        'heic': 'HEIF',
+        'webp': 'WEBP',
+        'png': 'PNG',
+        'bmp': 'BMP',
+        'gif': 'GIF',
+    }.get(target_ext, target_ext.upper())
+
+
+def _assert_conversion_supported(original_ext: str, target_ext: str) -> None:
+    """Fail fast with a clear message when the UI allows an unsupported pairing."""
+    if target_ext == 'compress':
+        return
+
+    if target_ext in IMAGE_EXTENSIONS and original_ext == 'pdf':
+        if target_ext == 'svg':
+            raise ValueError('PDF to SVG is not supported.')
+        return
+
+    if original_ext == 'svg' and target_ext in IMAGE_EXTENSIONS:
+        return
+
+    if original_ext == 'svg' and target_ext == 'pdf':
+        return
+
+    if target_ext == 'svg' and original_ext in IMAGE_EXTENSIONS:
+        return
+
+    if target_ext in IMAGE_EXTENSIONS and original_ext in IMAGE_EXTENSIONS:
+        return
+
+    if target_ext in AUDIO_EXTENSIONS:
+        if original_ext not in AUDIO_EXTENSIONS and original_ext not in VIDEO_EXTENSIONS:
+            raise ValueError(
+                f'Cannot produce audio from .{original_ext}; upload an audio or video file.'
+            )
+        return
+
+    if target_ext in VIDEO_EXTENSIONS:
+        if original_ext not in VIDEO_EXTENSIONS:
+            raise ValueError(
+                f'Cannot produce video from .{original_ext}; upload a video file.'
+            )
+        return
+
+    if target_ext == 'pdf':
+        if original_ext not in ('docx', 'svg') and original_ext not in IMAGE_EXTENSIONS:
+            raise ValueError(f'Cannot convert .{original_ext} to PDF.')
+        return
+
+    if target_ext == 'docx':
+        if original_ext not in ('pdf',) and original_ext not in IMAGE_EXTENSIONS:
+            raise ValueError(f'Cannot convert .{original_ext} to Word (.docx).')
+        return
+
+    raise ValueError(f'Conversion from {original_ext} to {target_ext} is not supported.')
+
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
 def get_upload_folder():
     return current_app.config['UPLOAD_FOLDER']
+
+
+def _client_ip_hash():
+    forwarded = request.headers.get('X-Forwarded-For', '')
+    ip = forwarded.split(',')[0].strip() if forwarded else (request.remote_addr or 'unknown')
+    key = str(SECRET_KEY).encode()
+    return hmac.new(key, ip.encode('utf-8'), hashlib.sha256).hexdigest()
 
 
 # ─────────────────────────────────────────────
@@ -71,6 +143,26 @@ def upload_file():
 
     if file and allowed_file(file.filename):
         user_identity = get_jwt_identity()
+        usage = None
+        if user_identity is None:
+            limit = int(os.getenv('ANONYMOUS_DAILY_UPLOAD_LIMIT', '3'))
+            today = datetime.utcnow().date()
+            ip_hash = _client_ip_hash()
+            usage = AnonymousDailyUsage.query.filter_by(day=today, ip_hash=ip_hash).first()
+            if usage is None:
+                usage = AnonymousDailyUsage(day=today, ip_hash=ip_hash, uploads=0)
+                db.session.add(usage)
+                db.session.flush()
+            if usage.uploads >= limit:
+                db.session.rollback()
+                return jsonify({
+                    'message': (
+                        f'Guest limit reached ({limit} uploads per UTC day). '
+                        'Sign in for unlimited uploads and batch processing.'
+                    ),
+                    'code': 'ANON_LIMIT',
+                }), 429
+
         original_filename = secure_filename(file.filename)
         unique_id = str(uuid.uuid4())
         ext = original_filename.rsplit('.', 1)[1].lower()
@@ -85,6 +177,8 @@ def upload_file():
             status='pending'
         )
         db.session.add(new_job)
+        if user_identity is None and usage is not None:
+            usage.uploads += 1
         db.session.commit()
         return jsonify({'message': 'File uploaded', 'job_id': new_job.id}), 201
 
@@ -113,48 +207,39 @@ def process_job(job_id):
         output_filename = f"{job.original_filename.rsplit('.', 1)[0]}.{target_ext}"
         output_path = os.path.join(upload_folder, output_filename)
 
-        # ── Compression jobs ───────────────────────────────────────────────
         compress_level = request.json.get('quality', None) if request.is_json else None
+
+        _assert_conversion_supported(original_ext, target_ext)
 
         if target_ext == 'compress':
             output_filename, output_path = _compress_file(
                 input_path, original_ext, upload_folder, compress_level
             )
-        # ── PDF → image ────────────────────────────────────────────────────
         elif target_ext in IMAGE_EXTENSIONS and original_ext == 'pdf':
             _pdf_to_image(input_path, output_path, target_ext)
-        # ── SVG → raster ───────────────────────────────────────────────────
         elif original_ext == 'svg' and target_ext in IMAGE_EXTENSIONS:
             _svg_to_image(input_path, output_path, target_ext)
-        # ── SVG → PDF ──────────────────────────────────────────────────────
         elif original_ext == 'svg' and target_ext == 'pdf':
             try:
                 import cairosvg
                 cairosvg.svg2pdf(url=input_path, write_to=output_path)
             except ImportError:
-                raise ValueError("SVG to PDF conversion requires cairosvg and Cairo library. Please install Cairo on your system.")
-        # ── image → SVG ────────────────────────────────────────────────────
+                raise ValueError("SVG to PDF conversion requires cairosvg and Cairo library.")
         elif target_ext == 'svg' and original_ext in IMAGE_EXTENSIONS:
             vtracer.convert_image_to_svg_py(input_path, output_path)
-        # ── image → image ──────────────────────────────────────────────────
         elif target_ext in IMAGE_EXTENSIONS and original_ext in IMAGE_EXTENSIONS:
             _image_to_image(input_path, output_path, target_ext)
-        # ── audio ──────────────────────────────────────────────────────────
         elif target_ext in AUDIO_EXTENSIONS:
             _convert_audio(input_path, output_path, original_ext, target_ext)
-        # ── video ──────────────────────────────────────────────────────────
         elif target_ext in VIDEO_EXTENSIONS:
             _convert_video(input_path, output_path, original_ext, target_ext)
-        # ── PDF ────────────────────────────────────────────────────────────
         elif target_ext == 'pdf':
             _to_pdf(input_path, output_path, original_ext)
-        # ── DOCX ───────────────────────────────────────────────────────────
         elif target_ext == 'docx':
             _to_docx(input_path, output_path, original_ext)
         else:
             raise ValueError(f"Conversion from {original_ext} to {target_ext} not supported")
 
-        # ── Optional compression after conversion ────────────────────────────
         if compress_level is not None and target_ext != 'compress':
             compressed_filename, compressed_path = _compress_file(
                 output_path, target_ext, upload_folder, compress_level
@@ -181,12 +266,11 @@ def process_job(job_id):
 
 
 # ─────────────────────────────────────────────
-# COMPRESS endpoint (separate route for flexibility)
+# COMPRESS endpoint
 # ─────────────────────────────────────────────
 
 @convert_bp.route('/compress/<int:job_id>', methods=['POST'])
 def compress_job(job_id):
-    """Dedicated compression endpoint. Accepts optional JSON body: {"quality": 60}"""
     job = db.get_or_404(Job, job_id)
     if job.status != 'pending':
         return jsonify({'message': 'Job already processed'}), 400
@@ -251,11 +335,8 @@ def download_file(job_id):
 # PRIVATE HELPERS
 # ═════════════════════════════════════════════
 
-# ── Image helpers ─────────────────────────────
-
 def _image_to_image(input_path, output_path, target_ext):
     with Image.open(input_path) as img:
-        # Convert palette/transparency for JPEG family
         if target_ext in ('jpg', 'jpeg', 'jfif') and img.mode in ('RGBA', 'P', 'LA'):
             background = Image.new('RGB', img.size, (255, 255, 255))
             if img.mode == 'P':
@@ -266,9 +347,13 @@ def _image_to_image(input_path, output_path, target_ext):
         elif target_ext == 'png' and img.mode == 'P':
             img = img.convert('RGBA')
 
-        fmt_map = {'jpg': 'JPEG', 'jpeg': 'JPEG', 'jfif': 'JPEG', 'tif': 'TIFF'}
-        fmt = fmt_map.get(target_ext, target_ext.upper())
-        img.save(output_path, format=fmt)
+        fmt = _pil_format_for_target(target_ext)
+        save_kw = {}
+        if fmt == 'HEIF':
+            if img.mode not in ('RGB', 'RGBA'):
+                img = img.convert('RGB')
+            save_kw['quality'] = 85
+        img.save(output_path, format=fmt, **save_kw)
 
 
 def _pdf_to_image(input_path, output_path, target_ext):
@@ -280,29 +365,34 @@ def _pdf_to_image(input_path, output_path, target_ext):
         bg = Image.new('RGB', img.size, (255, 255, 255))
         bg.paste(img, mask=img.split()[3])
         img = bg
-    fmt_map = {'jpg': 'JPEG', 'jpeg': 'JPEG', 'jfif': 'JPEG', 'tif': 'TIFF'}
-    fmt = fmt_map.get(target_ext, target_ext.upper())
-    img.save(output_path, format=fmt)
+    fmt = _pil_format_for_target(target_ext)
+    save_kw = {}
+    if fmt == 'HEIF':
+        if img.mode not in ('RGB', 'RGBA'):
+            img = img.convert('RGB')
+        save_kw['quality'] = 85
+    img.save(output_path, format=fmt, **save_kw)
 
 
 def _svg_to_image(input_path, output_path, target_ext):
     try:
         import cairosvg
     except ImportError:
-        raise ValueError("SVG conversion requires cairosvg and Cairo library. Please install Cairo on your system.")
-    # Render SVG to PNG first, then convert
+        raise ValueError("SVG conversion requires cairosvg and Cairo library.")
     png_bytes = cairosvg.svg2png(url=input_path)
     img = Image.open(io.BytesIO(png_bytes))
     if target_ext in ('jpg', 'jpeg') and img.mode == 'RGBA':
         bg = Image.new('RGB', img.size, (255, 255, 255))
         bg.paste(img, mask=img.split()[3])
         img = bg
-    fmt_map = {'jpg': 'JPEG', 'jpeg': 'JPEG', 'jfif': 'JPEG', 'tif': 'TIFF'}
-    fmt = fmt_map.get(target_ext, target_ext.upper())
-    img.save(output_path, format=fmt)
+    fmt = _pil_format_for_target(target_ext)
+    save_kw = {}
+    if fmt == 'HEIF':
+        if img.mode not in ('RGB', 'RGBA'):
+            img = img.convert('RGB')
+        save_kw['quality'] = 85
+    img.save(output_path, format=fmt, **save_kw)
 
-
-# ── Audio helpers ─────────────────────────────
 
 def _convert_audio(input_path, output_path, original_ext, target_ext):
     if original_ext in AUDIO_EXTENSIONS:
@@ -321,8 +411,6 @@ def _convert_audio(input_path, output_path, original_ext, target_ext):
     fmt = fmt_map.get(target_ext, target_ext)
     audio.export(output_path, format=fmt)
 
-
-# ── Video helpers ─────────────────────────────
 
 def _convert_video(input_path, output_path, original_ext, target_ext):
     if original_ext not in VIDEO_EXTENSIONS:
@@ -344,8 +432,6 @@ def _convert_video(input_path, output_path, original_ext, target_ext):
     video.close()
 
 
-# ── PDF helpers ───────────────────────────────
-
 def _to_pdf(input_path, output_path, original_ext):
     if original_ext == 'docx':
         _docx_to_pdf(input_path, output_path)
@@ -357,13 +443,12 @@ def _to_pdf(input_path, output_path, original_ext):
             import cairosvg
             cairosvg.svg2pdf(url=input_path, write_to=output_path)
         except ImportError:
-            raise ValueError("SVG to PDF conversion requires cairosvg and Cairo library. Please install Cairo on your system.")
+            raise ValueError("SVG to PDF conversion requires cairosvg and Cairo library.")
     else:
         raise ValueError(f"Cannot convert {original_ext} to PDF")
 
 
 def _docx_to_pdf(input_path, output_path):
-    """Convert DOCX to PDF preserving paragraphs, headings, bold/italic, tables."""
     doc = Document(input_path)
     story = []
     styles = getSampleStyleSheet()
@@ -371,16 +456,13 @@ def _docx_to_pdf(input_path, output_path):
     heading_style = ParagraphStyle('Heading1RL', parent=styles['Heading1'], fontSize=16, spaceAfter=12)
     heading2_style = ParagraphStyle('Heading2RL', parent=styles['Heading2'], fontSize=14, spaceAfter=10)
     normal_style = ParagraphStyle('NormalRL', parent=styles['Normal'], fontSize=11, spaceAfter=6, leading=14)
-    bold_style = ParagraphStyle('BoldRL', parent=styles['Normal'], fontSize=11, spaceAfter=6, fontName='Helvetica-Bold')
 
     def _para_to_rl(para):
-        # Detect heading style
-        if para.style.name.startswith('Heading 1'):
+        if para.style and para.style.name.startswith('Heading 1'):
             return Paragraph(_escape_xml(para.text), heading_style)
-        if para.style.name.startswith('Heading 2'):
+        if para.style and para.style.name.startswith('Heading 2'):
             return Paragraph(_escape_xml(para.text), heading2_style)
 
-        # Build inline run markup
         parts = []
         for run in para.runs:
             text = _escape_xml(run.text)
@@ -440,8 +522,6 @@ def _escape_xml(text):
                 .replace('"', '&quot;'))
 
 
-# ── DOCX helpers ──────────────────────────────
-
 def _to_docx(input_path, output_path, original_ext):
     if original_ext == 'pdf':
         _pdf_to_docx(input_path, output_path)
@@ -452,39 +532,19 @@ def _to_docx(input_path, output_path, original_ext):
 
 
 def _pdf_to_docx(input_path, output_path):
-    """Extract PDF text with layout hints and write to DOCX."""
-    reader = PdfReader(input_path)
-    doc = Document()
+    try:
+        from pdf2docx import Converter
+    except ImportError as exc:
+        raise ValueError(
+            "PDF to DOCX layout-preserving conversion requires pdf2docx. "
+            "Install it in backend dependencies."
+        ) from exc
 
-    # Title style
-    doc.styles['Normal'].font.size = Pt(11)
-
-    for page_num, page in enumerate(reader.pages):
-        if page_num > 0:
-            doc.add_page_break()
-
-        text = page.extract_text() or ''
-        lines = text.split('\n')
-
-        for line in lines:
-            line = line.strip()
-            if not line:
-                doc.add_paragraph('')
-                continue
-
-            para = doc.add_paragraph()
-            # Heuristic: short ALL-CAPS lines or lines ending with no punctuation
-            # that are significantly shorter than average → treat as heading
-            if len(line) < 80 and line.isupper():
-                para.style = doc.styles['Heading 1']
-                para.add_run(line)
-            elif len(line) < 60 and not line.endswith(('.', ',', ';', ':')):
-                para.style = doc.styles['Heading 2']
-                para.add_run(line)
-            else:
-                para.add_run(line)
-
-    doc.save(output_path)
+    converter = Converter(input_path)
+    try:
+        converter.convert(output_path, start=0, end=None)
+    finally:
+        converter.close()
 
 
 def _image_to_docx(input_path, output_path):
@@ -517,13 +577,11 @@ def _compress_image(input_path, original_ext, upload_folder, unique_id, quality,
     output_path = os.path.join(upload_folder, output_filename)
 
     with Image.open(input_path) as img:
-        # Resize if needed
         if resize_percent < 100:
             new_width = int(img.width * resize_percent / 100)
             new_height = int(img.height * resize_percent / 100)
             img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
-        # Flatten transparency for JPEG
         if output_ext in ('jpg', 'jpeg') and img.mode in ('RGBA', 'P', 'LA'):
             bg = Image.new('RGB', img.size, (255, 255, 255))
             if img.mode == 'P':
@@ -536,7 +594,6 @@ def _compress_image(input_path, original_ext, upload_folder, unique_id, quality,
         fmt = fmt_map.get(output_ext, output_ext.upper())
 
         if fmt == 'PNG':
-            # PNG uses lossless compression level 0-9; map quality 0-100 → 9-0
             compress_level = max(0, min(9, int((100 - quality) / 11)))
             img.save(output_path, format='PNG', optimize=True, compress_level=compress_level)
         elif fmt in ('JPEG',):
@@ -549,53 +606,17 @@ def _compress_image(input_path, original_ext, upload_folder, unique_id, quality,
 
 def _compress_pdf(input_path, upload_folder, unique_id, quality):
     """
-    Compress PDF by re-encoding embedded images at reduced quality
-    and removing redundant objects.
+    Keep PDF output valid and non-destructive.
+    Some PDFs become blank when re-serialized/compressed via PyPDF2.
+    We prioritize preserving content and layout over aggressive reduction.
     """
     output_filename = f"{unique_id}_compressed.pdf"
     output_path = os.path.join(upload_folder, output_filename)
+    shutil.copyfile(input_path, output_path)
 
-    reader = PdfReader(input_path)
-    writer = PdfWriter()
-
-    for page in reader.pages:
-        writer.add_page(page)
-
-    # Compress each page's content streams
-    for page in writer.pages:
-        page.compress_content_streams()
-
-    # Re-encode images at lower quality
-    img_quality = max(10, min(95, int(quality)))
-    for page in writer.pages:
-        if '/Resources' in page and '/XObject' in page['/Resources']:
-            xobjects = page['/Resources']['/XObject']
-            if hasattr(xobjects, 'items'):
-                for name, obj in xobjects.items():
-                    try:
-                        xobj = obj.get_object()
-                        if xobj.get('/Subtype') == '/Image':
-                            width = int(xobj['/Width'])
-                            height = int(xobj['/Height'])
-                            data = xobj._data
-                            if xobj.get('/ColorSpace') == '/DeviceRGB':
-                                mode = 'RGB'
-                            else:
-                                mode = 'L'
-                            try:
-                                img = Image.frombytes(mode, (width, height), data)
-                                buf = io.BytesIO()
-                                img.save(buf, format='JPEG', quality=img_quality)
-                                xobj._data = buf.getvalue()
-                                xobj['/Filter'] = '/DCTDecode'
-                                xobj['/Length'] = len(xobj._data)
-                            except Exception:
-                                pass  # skip unreadable images
-                    except Exception:
-                        pass
-
-    with open(output_path, 'wb') as f:
-        writer.write(f)
+    # Verify output is not empty
+    if os.path.getsize(output_path) == 0:
+        raise ValueError("PDF compression produced an empty file.")
 
     return output_filename, output_path
 
@@ -613,7 +634,6 @@ def _compress_audio(input_path, original_ext, upload_folder, unique_id, bitrate_
 
 
 def _compress_video(input_path, original_ext, upload_folder, unique_id, crf):
-    """CRF: lower = better quality / larger file. 28 is a sensible default."""
     output_filename = f"{unique_id}_compressed.{original_ext}"
     output_path = os.path.join(upload_folder, output_filename)
 
@@ -622,15 +642,12 @@ def _compress_video(input_path, original_ext, upload_folder, unique_id, crf):
     except (TypeError, ValueError):
         quality_val = 28
 
-    # If caller supplies a 1-100 quality percentage, map that into the CRF range.
     if 1 <= quality_val <= 100:
         crf_value = max(18, min(35, int(35 - (quality_val / 100) * 17)))
     else:
         crf_value = max(18, min(35, quality_val))
 
     video = VideoFileClip(input_path)
-    # moviepy doesn't expose CRF directly — we reduce resolution as a proxy
-    # Scale down to 720p if larger
     if video.h > 720:
         video = video.resize(height=720)
 

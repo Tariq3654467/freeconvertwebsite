@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import { ChevronLeft, Loader as Loader2 } from 'lucide-react';
+import { ChevronLeft, Loader2 } from 'lucide-react';
 
 const API = 'http://127.0.0.1:5000';
 
@@ -59,9 +59,15 @@ export default function CreateBlogPage() {
       </button>
 
       <div className="admin-form-container">
-        <h1 className="admin-page-title">Create New Blog</h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap', marginBottom: '-0.5rem' }}>
+          <h1 className="admin-page-title" style={{ marginBottom: 0 }}>New Article</h1>
+          <button type="submit" form="article-create-form" disabled={isLoading} className="admin-btn-primary">
+            {isLoading ? <Loader2 size={18} className="animate-spin" /> : null}
+            {isLoading ? 'Saving…' : 'Save'}
+          </button>
+        </div>
 
-        <form onSubmit={handleSubmit} className="admin-form">
+        <form id="article-create-form" onSubmit={handleSubmit} className="admin-form">
           <div className="admin-form-group">
             <label>Title *</label>
             <input
@@ -111,14 +117,25 @@ export default function CreateBlogPage() {
 
           <div className="admin-form-group">
             <label>Content *</label>
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="Write your blog content here..."
-              className="admin-form-textarea"
-              rows={12}
-              required
-            />
+            <div className="admin-editor-shell">
+              <div className="admin-editor-toolbar" aria-hidden>
+                <span>B</span>
+                <span>I</span>
+                <span>U</span>
+                <span>H2</span>
+                <span>List</span>
+                <span>Quote</span>
+                <span>Link</span>
+              </div>
+              <textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="Write your article…"
+                className="admin-form-textarea"
+                rows={14}
+                required
+              />
+            </div>
           </div>
 
           <div className="admin-form-group">
@@ -126,7 +143,7 @@ export default function CreateBlogPage() {
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className="admin-form-input"
+              className="admin-form-select"
             >
               <option value="draft">Draft</option>
               <option value="published">Published</option>
@@ -142,13 +159,6 @@ export default function CreateBlogPage() {
               className="admin-btn-secondary"
             >
               Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="admin-btn-primary"
-            >
-              {isLoading ? <Loader2 size={18} /> : '+'} Create Blog
             </button>
           </div>
         </form>

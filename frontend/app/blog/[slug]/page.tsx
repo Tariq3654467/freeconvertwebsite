@@ -16,6 +16,7 @@ interface Blog {
   tags: string[];
   view_count: number;
   created_at: string;
+  slug: string;
 }
 
 export default function BlogDetailPage() {
@@ -24,18 +25,25 @@ export default function BlogDetailPage() {
   const [error, setError] = useState('');
   const params = useParams();
   const router = useRouter();
-  const slug = params.slug as string;
+  const rawSlug = params?.slug as string | undefined;
+  const slugParam = rawSlug
+    ? decodeURIComponent(rawSlug).trim().toLowerCase()
+    : '';
 
   useEffect(() => {
+    if (!slugParam) {
+      setLoading(false);
+      setError('Blog not found');
+      return;
+    }
+
     const fetchBlog = async () => {
       try {
-        const response = await axios.get(`${API}/api/admin/blogs?status=published`);
-        const foundBlog = response.data.blogs.find((b: Blog) => b.id === slug);
-        if (foundBlog) {
-          setBlog(foundBlog);
-        } else {
-          setError('Blog not found');
-        }
+        // Public endpoint: resolves UUID or slug (see backend auth_routes.get_blog)
+        const { data } = await axios.get<Blog>(
+          `${API}/api/auth/blogs/${encodeURIComponent(slugParam)}`
+        );
+        setBlog(data);
       } catch (err) {
         setError('Failed to load blog');
         console.error(err);
@@ -44,10 +52,8 @@ export default function BlogDetailPage() {
       }
     };
 
-    if (slug) {
-      fetchBlog();
-    }
-  }, [slug]);
+    fetchBlog();
+  }, [slugParam]);
 
   if (loading) {
     return (
@@ -116,3 +122,4 @@ export default function BlogDetailPage() {
     </main>
   );
 }
+

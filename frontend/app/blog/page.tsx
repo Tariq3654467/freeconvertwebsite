@@ -30,7 +30,7 @@ export default function BlogPage() {
   const fetchBlogs = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API}/api/admin/blogs?status=published&page=${page}&per_page=9`);
+      const response = await axios.get(`${API}/api/auth/blogs?status=published&page=${page}&per_page=9`);
       setBlogs(response.data.blogs);
       setTotal(response.data.total);
     } catch (error) {

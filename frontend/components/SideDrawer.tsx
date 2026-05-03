@@ -22,7 +22,7 @@ import { useAuth } from '../contexts/AuthContext';
 interface SideDrawerProps {
     isOpen: boolean;
     onClose: () => void;
-    onSelectTool: (tool: ToolItem) => void;
+    onSelectTool?: (tool: ToolItem) => void;
   }
 
 export default function SideDrawer({ isOpen, onClose, onSelectTool }: SideDrawerProps) {
@@ -152,7 +152,8 @@ export default function SideDrawer({ isOpen, onClose, onSelectTool }: SideDrawer
                                                         key={tool.id}
                                                         className="tool-link"
                                                         onClick={() => {
-                                                            onSelectTool(tool);
+                                                            onSelectTool?.(tool);
+                                                            router.push(`/convert/${tool.id}`);
                                                             onClose();
                                                         }}
                                                     >

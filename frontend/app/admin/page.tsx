@@ -49,8 +49,10 @@ export default function AdminDashboard() {
   return (
     <div className="admin-page">
       <div className="admin-page-header">
-        <h1 className="admin-page-title">Dashboard</h1>
-        <p className="admin-page-subtitle">Welcome back! Here's your site overview.</p>
+        <div>
+          <h1 className="admin-page-title">Dashboard</h1>
+          <p className="admin-page-subtitle">Site overview and publishing stats.</p>
+        </div>
       </div>
 
       <div className="admin-stats-grid">

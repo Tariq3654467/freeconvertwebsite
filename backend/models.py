@@ -106,6 +106,19 @@ class BlogComment(db.Model):
         }
 
 
+class AnonymousDailyUsage(db.Model):
+    """Tracks guest upload counts per UTC day (hashed IP) for rate limiting."""
+    __tablename__ = 'anonymous_daily_usage'
+    __table_args__ = (
+        db.UniqueConstraint('day', 'ip_hash', name='uq_anonymous_daily_ip'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    day = db.Column(db.Date, nullable=False, index=True)
+    ip_hash = db.Column(db.String(64), nullable=False, index=True)
+    uploads = db.Column(db.Integer, nullable=False, default=0)
+
+
 class Job(db.Model):
     __tablename__ = 'jobs'
     id = db.Column(db.Integer, primary_key=True)

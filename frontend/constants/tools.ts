@@ -81,3 +81,11 @@ export const TOOLS_DATA: Record<string, ToolCategory[]> = {
     },
   ],
 };
+
+export const ALL_TOOLS: ToolItem[] = Object.values(TOOLS_DATA)
+  .flatMap((categories) => categories)
+  .flatMap((category) => category.items);
+
+export function getToolById(toolId: string): ToolItem | undefined {
+  return ALL_TOOLS.find((tool) => tool.id === toolId);
+}

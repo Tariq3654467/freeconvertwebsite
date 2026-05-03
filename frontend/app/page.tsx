@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import {
   ChevronDown, Upload, Cloud, Link as LinkIcon, HardDrive,
@@ -9,14 +9,19 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import ToolsGrid from '../components/ToolsGrid';
+import { useAuth } from '../contexts/AuthContext';
+import { getToolById } from '../constants/tools';
 
 const API = 'http://127.0.0.1:5000';
+
+/** Signed-in users can queue multiple files per run; guests submit one file at a time. */
+const MEMBER_BATCH_MAX = 15;
 
 // ── Format groups shown in <select> ──────────────────────────────────────────
 const FORMAT_GROUPS = [
   {
     label: 'Images',
-    formats: ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'tiff', 'svg', 'heic', 'jfif'],
+    formats: ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'tiff', 'tif', 'svg', 'heic', 'jfif'],
   },
   {
     label: 'Documents',
@@ -28,9 +33,73 @@ const FORMAT_GROUPS = [
   },
   {
     label: 'Video',
-    formats: ['mp4', 'mov', 'avi', 'mkv', 'webm'],
+    formats: ['mp4', 'mov', 'avi', 'mkv', 'wmv', 'webm'],
   },
 ];
+
+const ALL_CONVERT_TARGETS = new Set(FORMAT_GROUPS.flatMap(g => g.formats));
+
+/** Raster/image inputs (matches backend IMAGE_EXTENSIONS minus svg). */
+const IMAGE_RASTER_EXTS = new Set([
+  'png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'tiff', 'tif', 'heic', 'jfif',
+]);
+const AUDIO_EXTS = new Set(['mp3', 'ogg', 'wav', 'flac', 'm4a']);
+const VIDEO_EXTS = new Set(['mp4', 'mov', 'avi', 'mkv', 'wmv', 'webm']);
+
+/**
+ * Target formats the backend accepts for this source extension
+ * (mirrors backend `_assert_conversion_supported`).
+ * Returns null = show full list (unknown source type).
+ */
+function allowedConversionTargets(originalExt: string): Set<string> | null {
+  const o = originalExt.toLowerCase();
+  const out = new Set<string>();
+
+  if (o === 'pdf') {
+    IMAGE_RASTER_EXTS.forEach(e => out.add(e));
+    out.add('docx');
+    return out;
+  }
+  if (o === 'docx') {
+    out.add('pdf');
+    return out;
+  }
+  if (o === 'svg') {
+    IMAGE_RASTER_EXTS.forEach(e => out.add(e));
+    out.add('pdf');
+    return out;
+  }
+  if (IMAGE_RASTER_EXTS.has(o)) {
+    IMAGE_RASTER_EXTS.forEach(e => out.add(e));
+    out.add('svg');
+    out.add('pdf');
+    out.add('docx');
+    return out;
+  }
+  if (AUDIO_EXTS.has(o)) {
+    AUDIO_EXTS.forEach(e => out.add(e));
+    return out;
+  }
+  if (VIDEO_EXTS.has(o)) {
+    VIDEO_EXTS.forEach(e => out.add(e));
+    AUDIO_EXTS.forEach(e => out.add(e));
+    return out;
+  }
+  return null;
+}
+
+/** Output formats valid for every file in the batch (intersection). */
+function intersectTargetsForFiles(fileList: File[]): Set<string> {
+  if (!fileList.length) return new Set();
+  let result: Set<string> | null = null;
+  for (const f of fileList) {
+    const ext = f.name.split('.').pop()?.toLowerCase() || '';
+    const allowed = allowedConversionTargets(ext);
+    const next = allowed === null ? new Set(ALL_CONVERT_TARGETS) : allowed;
+    result = result === null ? new Set(next) : new Set(Array.from(result).filter(x => next.has(x)));
+  }
+  return result ?? new Set();
+}
 
 // Tools that are "compress" rather than "convert"
 const COMPRESS_IDS = new Set([
@@ -39,12 +108,35 @@ const COMPRESS_IDS = new Set([
   'compress-pdf',
 ]);
 
+const COMPRESS_GROUPS = {
+  Images: ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'tiff', 'tif', 'heic', 'jfif'],
+  Audio: ['mp3', 'ogg', 'wav', 'flac', 'm4a'],
+  Video: ['mp4', 'mov', 'avi', 'mkv', 'wmv', 'webm'],
+  Documents: ['pdf'],
+} as const;
+
+const COMPRESS_BY_TOOL: Record<string, string[]> = {
+  'png-compressor': ['png'],
+  'jpg-compressor': ['jpg', 'jpeg'],
+  'mp4-compressor': ['mp4'],
+  'video-compressor': [...COMPRESS_GROUPS.Video],
+  'audio-compressor': [...COMPRESS_GROUPS.Audio],
+  'pdf-compressor': ['pdf'],
+  'compress-pdf': ['pdf'],
+};
+
 type Mode = 'convert' | 'compress';
 
-export default function Home() {
+interface HomeProps {
+  initialToolId?: string;
+}
+
+export default function Home({ initialToolId }: HomeProps) {
+  const { token, isAuthenticated } = useAuth();
   const [files, setFiles] = useState<File[]>([]);
   const [targetFormat, setTargetFormat] = useState('png');
   const [mode, setMode] = useState<Mode>('convert');
+  const [selectedCompressTool, setSelectedCompressTool] = useState<string>('all');
   const [quality, setQuality] = useState(75);
   const [compressionPreset, setCompressionPreset] = useState<'high' | 'balanced' | 'small' | 'custom'>('balanced');
   const [resizePercent, setResizePercent] = useState(100);
@@ -53,37 +145,119 @@ export default function Home() {
 
   const [status, setStatus] = useState('');
   const [statusType, setStatusType] = useState<'info' | 'success' | 'error' | 'processing'>('info');
-  const [downloadLink, setDownloadLink] = useState('');
+  const [downloadLinks, setDownloadLinks] = useState<{ url: string; name: string }[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const authHeaders = useMemo(
+    () => (token ? { Authorization: `Bearer ${token}` } as const : {}),
+    [token]
+  );
 
-  // Listen for tool-grid selections
+  const waitUntilJobDone = async (jobId: number) => {
+    for (;;) {
+      const { data } = await axios.get(`${API}/api/convert/status/${jobId}`, { headers: authHeaders });
+      if (data.status === 'done') return;
+      if (data.status === 'failed') throw new Error('Processing failed.');
+      await new Promise(r => setTimeout(r, 1500));
+    }
+  };
+  const allowedCompressExts =
+    selectedCompressTool === 'all'
+      ? [
+          ...COMPRESS_GROUPS.Images,
+          ...COMPRESS_GROUPS.Audio,
+          ...COMPRESS_GROUPS.Video,
+          ...COMPRESS_GROUPS.Documents,
+        ]
+      : (COMPRESS_BY_TOOL[selectedCompressTool] ?? [
+          ...COMPRESS_GROUPS.Images,
+          ...COMPRESS_GROUPS.Audio,
+          ...COMPRESS_GROUPS.Video,
+          ...COMPRESS_GROUPS.Documents,
+        ]);
+  const compressAccept = allowedCompressExts.map(ext => `.${ext}`).join(',');
+
+  const convertFormatGroups = useMemo(() => {
+    if (mode !== 'convert' || files.length === 0) return FORMAT_GROUPS;
+    const inter = intersectTargetsForFiles(files);
+    if (inter.size === 0) return [];
+    return FORMAT_GROUPS.map(g => ({
+      ...g,
+      formats: g.formats.filter(f => inter.has(f)),
+    })).filter(g => g.formats.length > 0);
+  }, [mode, files]);
+
+  useEffect(() => {
+    if (mode !== 'convert' || files.length === 0) return;
+    const flat = intersectTargetsForFiles(files);
+    const opts = Array.from(flat);
+    if (!opts.length) return;
+    setTargetFormat(prev => (opts.includes(prev) ? prev : opts[0]));
+  }, [mode, files]);
+
+  const applyToolSelection = useCallback((toolId: string) => {
+    const tool = getToolById(toolId);
+    if (!tool) return;
+    if (COMPRESS_IDS.has(tool.id)) {
+      setMode('compress');
+      setSelectedCompressTool(tool.id);
+    } else {
+      setMode('convert');
+      setSelectedCompressTool('all');
+      if (tool.to) setTargetFormat(tool.to);
+    }
+    setFiles([]);
+    setStatus('');
+    setDownloadLinks([]);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  useEffect(() => {
+    if (!initialToolId) return;
+    applyToolSelection(initialToolId);
+  }, [initialToolId, applyToolSelection]);
+
+  // Backward compatibility for any in-page tool dispatches.
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const handler = (e: any) => {
-      const tool = e.detail;
-      if (COMPRESS_IDS.has(tool.id)) {
-        setMode('compress');
-      } else {
-        setMode('convert');
-        if (tool.to) setTargetFormat(tool.to);
-      }
-      setFiles([]);
-      setStatus('');
-      setDownloadLink('');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+    const handler = (e: Event) => {
+      const tool = (e as CustomEvent).detail as { id?: string } | undefined;
+      if (tool?.id) applyToolSelection(tool.id);
     };
-    window.addEventListener('selectTool', handler);
-    return () => window.removeEventListener('selectTool', handler);
-  }, []);
+    window.addEventListener('selectTool', handler as EventListener);
+    return () => window.removeEventListener('selectTool', handler as EventListener);
+  }, [applyToolSelection]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
-    const chosen = Array.from(e.target.files);
-    setFiles(chosen.slice(0, 1));
+    const raw = Array.from(e.target.files);
+    const maxFiles = isAuthenticated ? MEMBER_BATCH_MAX : 1;
+
+    let chosen = raw;
+    if (mode === 'compress') {
+      const valid = chosen.filter(f => {
+        const ext = f.name.split('.').pop()?.toLowerCase() || '';
+        return allowedCompressExts.includes(ext);
+      });
+      if (valid.length < chosen.length) {
+        setStatusType('error');
+        setStatus('Some files were skipped — unsupported type for this compressor.');
+      }
+      chosen = valid.slice(0, maxFiles);
+      if (!chosen.length) {
+        setFiles([]);
+        setDownloadLinks([]);
+        e.target.value = '';
+        return;
+      }
+    } else {
+      chosen = chosen.slice(0, maxFiles);
+    }
+
+    setFiles(chosen);
     setStatus('');
-    setDownloadLink('');
+    setDownloadLinks([]);
   };
 
   const removeFile = (idx: number) =>
@@ -92,29 +266,36 @@ export default function Home() {
   // ── CONVERT ───────────────────────────────────────────────────────────────
   const handleConvert = async () => {
     if (!files.length) return;
-    try {
-      setStatus('Uploading…');
-      setStatusType('processing');
-      const formData = new FormData();
-      formData.append('file', files[0]);
-      formData.append('target_format', targetFormat);
-
-      const { data } = await axios.post(`${API}/api/convert/upload`, formData);
-      await runProcess(data.job_id);
-    } catch {
-      setStatus('Upload failed.');
+    const common = intersectTargetsForFiles(files);
+    if (!common.size || !common.has(targetFormat)) {
       setStatusType('error');
+      setStatus('Choose an output format that works for every selected file.');
+      return;
     }
-  };
-
-  const runProcess = async (jobId: number) => {
     try {
-      setStatus('Processing…');
+      setDownloadLinks([]);
       setStatusType('processing');
-      await axios.post(`${API}/api/convert/process/${jobId}`);
-      pollStatus(jobId);
-    } catch {
-      setStatus('Processing failed.');
+      const links: { url: string; name: string }[] = [];
+      const n = files.length;
+      for (let i = 0; i < n; i++) {
+        setStatus(`Uploading file ${i + 1} of ${n}…`);
+        const formData = new FormData();
+        formData.append('file', files[i]);
+        formData.append('target_format', targetFormat);
+        const { data } = await axios.post(`${API}/api/convert/upload`, formData, { headers: authHeaders });
+        setStatus(`Processing file ${i + 1} of ${n}…`);
+        await axios.post(`${API}/api/convert/process/${data.job_id}`, {}, { headers: authHeaders });
+        await waitUntilJobDone(data.job_id);
+        links.push({ url: `${API}/api/convert/download/${data.job_id}`, name: files[i].name });
+      }
+      setDownloadLinks(links);
+      setStatus(n > 1 ? `All ${n} files converted.` : 'Ready!');
+      setStatusType('success');
+    } catch (err) {
+      const msg = axios.isAxiosError(err)
+        ? String((err.response?.data as { message?: string })?.message ?? '')
+        : '';
+      setStatus(msg || 'Conversion failed.');
       setStatusType('error');
     }
   };
@@ -122,49 +303,51 @@ export default function Home() {
   // ── COMPRESS ──────────────────────────────────────────────────────────────
   const handleCompress = async () => {
     if (!files.length) return;
+    const invalid = files.filter(f => {
+      const ext = f.name.split('.').pop()?.toLowerCase() || '';
+      return !allowedCompressExts.includes(ext);
+    });
+    if (invalid.length) {
+      setStatusType('error');
+      setStatus('Every file must match this compressor’s supported types.');
+      return;
+    }
     try {
-      setStatus('Uploading…');
+      setDownloadLinks([]);
       setStatusType('processing');
-      const formData = new FormData();
-      formData.append('file', files[0]);
-      // target_format = 'compress' signals the process route
-      formData.append('target_format', files[0].name.split('.').pop()!.toLowerCase());
-
-      const { data } = await axios.post(`${API}/api/convert/upload`, formData);
-      // Use dedicated compress endpoint
-      setStatus('Compressing…');
-      await axios.post(`${API}/api/convert/compress/${data.job_id}`, {
-        quality,
-        preset: compressionPreset,
-        resize_percent: resizePercent
-      });
-      pollStatus(data.job_id);
-    } catch {
-      setStatus('Compression failed.');
+      const links: { url: string; name: string }[] = [];
+      const n = files.length;
+      for (let i = 0; i < n; i++) {
+        setStatus(`Uploading file ${i + 1} of ${n}…`);
+        const formData = new FormData();
+        formData.append('file', files[i]);
+        formData.append('target_format', files[i].name.split('.').pop()!.toLowerCase());
+        const { data } = await axios.post(`${API}/api/convert/upload`, formData, { headers: authHeaders });
+        setStatus(`Compressing file ${i + 1} of ${n}…`);
+        await axios.post(`${API}/api/convert/compress/${data.job_id}`, {
+          quality,
+          preset: compressionPreset,
+          resize_percent: resizePercent,
+        }, { headers: authHeaders });
+        await waitUntilJobDone(data.job_id);
+        links.push({ url: `${API}/api/convert/download/${data.job_id}`, name: files[i].name });
+      }
+      setDownloadLinks(links);
+      setStatus(n > 1 ? `All ${n} files compressed.` : 'Ready!');
+      setStatusType('success');
+    } catch (err) {
+      const msg = axios.isAxiosError(err)
+        ? String((err.response?.data as { message?: string })?.message ?? '')
+        : '';
+      setStatus(msg || 'Compression failed.');
       setStatusType('error');
     }
   };
 
-  const pollStatus = async (id: number) => {
-    try {
-      const { data } = await axios.get(`${API}/api/convert/status/${id}`);
-      if (data.status === 'done') {
-        setStatus('Ready!');
-        setStatusType('success');
-        setDownloadLink(`${API}/api/convert/download/${id}`);
-      } else if (data.status === 'failed') {
-        setStatus('Conversion failed.');
-        setStatusType('error');
-      } else {
-        setTimeout(() => pollStatus(id), 2000);
-      }
-    } catch {
-      /* silent */
-    }
-  };
-
-  const modeLabel = mode === 'compress' ? 'Compress' : 'Convert';
-  const actionLabel = mode === 'compress' ? 'Compress Now' : 'Convert Now';
+  const actionLabel =
+    mode === 'compress'
+      ? files.length > 1 ? `Compress all (${files.length})` : 'Compress Now'
+      : files.length > 1 ? `Convert all (${files.length})` : 'Convert Now';
   const onAction = mode === 'compress' ? handleCompress : handleConvert;
 
   return (
@@ -196,7 +379,13 @@ export default function Home() {
         {(['convert', 'compress'] as Mode[]).map(m => (
           <button
             key={m}
-            onClick={() => { setMode(m); setFiles([]); setStatus(''); setDownloadLink(''); }}
+            onClick={() => {
+              setMode(m);
+              if (m !== 'compress') setSelectedCompressTool('all');
+              setFiles([]);
+              setStatus('');
+              setDownloadLinks([]);
+            }}
             style={{
               padding: '0.5rem 1.25rem',
               borderRadius: '2rem',
@@ -222,6 +411,8 @@ export default function Home() {
           type="file"
           ref={fileInputRef}
           style={{ display: 'none' }}
+          multiple={isAuthenticated}
+          accept={mode === 'compress' ? compressAccept : undefined}
           onChange={handleFileChange}
         />
 
@@ -248,6 +439,48 @@ export default function Home() {
           )}
         </div>
 
+        <p style={{ textAlign: 'center', marginTop: '1rem', fontSize: '0.82rem', color: 'var(--text-dim)', maxWidth: '420px', marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.5 }}>
+          {!isAuthenticated ? (
+            <>
+              Guests can upload up to <strong style={{ color: 'var(--text-muted)' }}>3 files per UTC day</strong>,{' '}
+              <strong style={{ color: 'var(--text-muted)' }}>one file per run</strong>.{' '}
+              <Link href="/login" style={{ color: 'var(--primary-color)', fontWeight: 700 }}>Sign in</Link>{' '}
+              for unlimited uploads and batch processing.
+            </>
+          ) : (
+            <>
+              Signed in: select up to <strong style={{ color: 'var(--text-muted)' }}>{MEMBER_BATCH_MAX} files</strong> at once — the same convert or compress settings apply to each.
+            </>
+          )}
+        </p>
+
+        {mode === 'compress' && (
+          <div
+            style={{
+              marginTop: '1.25rem',
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border-glass)',
+              borderRadius: '10px',
+              padding: '0.875rem 1rem',
+              fontSize: '0.85rem',
+              color: 'var(--text-muted)',
+            }}
+          >
+            <div style={{ fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.4rem' }}>
+              Supported compression formats
+            </div>
+            <div>Images: {COMPRESS_GROUPS.Images.join(', ').toUpperCase()}</div>
+            <div>Audio: {COMPRESS_GROUPS.Audio.join(', ').toUpperCase()}</div>
+            <div>Video: {COMPRESS_GROUPS.Video.join(', ').toUpperCase()}</div>
+            <div>Documents: {COMPRESS_GROUPS.Documents.join(', ').toUpperCase()}</div>
+            {selectedCompressTool !== 'all' && (
+              <div style={{ marginTop: '0.45rem', color: 'var(--primary-color)', fontWeight: 600 }}>
+                Selected tool accepts: {allowedCompressExts.join(', ').toUpperCase()}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* File list */}
         {files.length > 0 && (
           <div style={{ marginTop: '2.5rem', maxWidth: '480px', margin: '2.5rem auto 0' }}>
@@ -266,21 +499,40 @@ export default function Home() {
 
             {/* Target format selector (convert only) */}
             {mode === 'convert' && (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', background: 'var(--bg-secondary)', padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid var(--border-glass)' }}>
-                <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-muted)' }}>Convert to:</span>
-                <select
-                  value={targetFormat}
-                  onChange={e => setTargetFormat(e.target.value)}
-                  style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--border-glass)', background: 'var(--bg-secondary)', color: 'var(--text-main)', fontWeight: 600, cursor: 'pointer', outline: 'none' }}
-                >
-                  {FORMAT_GROUPS.map(g => (
-                    <optgroup key={g.label} label={g.label}>
-                      {g.formats.map(f => (
-                        <option key={f} value={f}>{f.toUpperCase()}</option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
+              <div style={{ marginBottom: '1.25rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem', background: 'var(--bg-secondary)', padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid var(--border-glass)', gap: '0.75rem' }}>
+                  <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-muted)', flexShrink: 0 }}>Convert to:</span>
+                  {convertFormatGroups.length === 0 ? (
+                    <span style={{ fontSize: '0.85rem', color: '#f87171', fontWeight: 600, textAlign: 'right' }}>
+                      No shared format for this selection
+                    </span>
+                  ) : (
+                  <select
+                    value={targetFormat}
+                    onChange={e => setTargetFormat(e.target.value)}
+                    style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--border-glass)', background: 'var(--bg-secondary)', color: 'var(--text-main)', fontWeight: 600, cursor: 'pointer', outline: 'none', maxWidth: '52%' }}
+                  >
+                    {convertFormatGroups.map(g => (
+                      <optgroup key={g.label} label={g.label}>
+                        {g.formats.map(f => (
+                          <option key={f} value={f}>{f.toUpperCase()}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                  )}
+                </div>
+                {files.length === 1 &&
+                  allowedConversionTargets(files[0].name.split('.').pop()?.toLowerCase() || '') !== null && (
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', paddingLeft: '0.25rem' }}>
+                    Only output formats supported for your uploaded file are listed.
+                  </p>
+                )}
+                {files.length > 1 && (
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', paddingLeft: '0.25rem' }}>
+                    Batch: only formats that work for every selected file are listed. Same format applies to all.
+                  </p>
+                )}
               </div>
             )}
 
@@ -378,8 +630,16 @@ export default function Home() {
             )}
 
             <button
+              type="button"
               className="btn-choose"
-              style={{ width: '100%', borderRadius: 'var(--radius-lg)', justifyContent: 'center' }}
+              style={{
+                width: '100%',
+                borderRadius: 'var(--radius-lg)',
+                justifyContent: 'center',
+                opacity: mode === 'convert' && convertFormatGroups.length === 0 ? 0.55 : 1,
+                cursor: mode === 'convert' && convertFormatGroups.length === 0 ? 'not-allowed' : 'pointer',
+              }}
+              disabled={mode === 'convert' && convertFormatGroups.length === 0}
               onClick={onAction}
             >
               {actionLabel}
@@ -400,11 +660,26 @@ export default function Home() {
         )}
 
         {/* Download */}
-        {downloadLink && (
-          <div style={{ marginTop: '2rem' }}>
-            <a href={downloadLink} className="btn-choose" style={{ width: '100%', borderRadius: 'var(--radius-lg)', background: 'linear-gradient(135deg,#10b981 0%,#059669 100%)', textDecoration: 'none', justifyContent: 'center', boxShadow: '0 4px 15px rgba(16,185,129,0.3)' }}>
-              <Download size={22} /> Download Result
-            </a>
+        {downloadLinks.length > 0 && (
+          <div style={{ marginTop: '2rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', maxWidth: '480px', marginLeft: 'auto', marginRight: 'auto' }}>
+            {downloadLinks.map((dl, idx) => (
+              <a
+                key={`${dl.url}-${idx}`}
+                href={dl.url}
+                className="btn-choose"
+                style={{
+                  width: '100%',
+                  borderRadius: 'var(--radius-lg)',
+                  background: 'linear-gradient(135deg,#10b981 0%,#059669 100%)',
+                  textDecoration: 'none',
+                  justifyContent: 'center',
+                  boxShadow: '0 4px 15px rgba(16,185,129,0.3)',
+                  fontSize: downloadLinks.length > 1 ? '0.95rem' : undefined,
+                }}
+              >
+                <Download size={22} /> Download{downloadLinks.length > 1 ? `: ${dl.name}` : ' Result'}
+              </a>
+            ))}
           </div>
         )}
 

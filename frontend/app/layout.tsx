@@ -1,11 +1,16 @@
-import Navbar from '../components/Navbar'
-import { AuthProvider } from '../contexts/AuthContext'
+import type { Metadata } from 'next'
+import { Suspense } from 'react'
+import { Inter } from 'next/font/google'
 import './globals.css'
-import '../styles/admin.css'
+import ConditionalNavbar from '../components/ConditionalNavbar'
+import ConditionalFooter from '../components/ConditionalFooter'
+import { AuthProvider } from '../contexts/AuthContext'
 
-export const metadata = {
-  title: 'FreeConvert | File Converter',
-  description: 'Easily convert files from one format to another online.',
+const inter = Inter({ subsets: ['latin'] })
+
+export const metadata: Metadata = {
+  title: 'PrismConvert - File Converter',
+  description: 'Convert images, videos, audio, documents and more. Fast, private, secure.',
 }
 
 export default function RootLayout({
@@ -15,15 +20,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>
-        <div className="bg-blobs">
-          <div className="blob blob-1"></div>
-          <div className="blob blob-2"></div>
-          <div className="blob blob-3"></div>
-        </div>
+      <body className={inter.className}>
         <AuthProvider>
-          <Navbar />
+          <Suspense fallback={null}>
+            <ConditionalNavbar />
+          </Suspense>
           {children}
+          <Suspense fallback={null}>
+            <ConditionalFooter />
+          </Suspense>
         </AuthProvider>
       </body>
     </html>

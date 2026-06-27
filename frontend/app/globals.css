@@ -1,27 +1,27 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 :root {
-  --primary-gradient: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
-  --primary-color: #818cf8;
-  --primary-hover: #6366f1;
+  --primary-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+  --primary-color: #6366f1;
+  --primary-hover: #4f46e5;
   --accent-color: #f472b6;
   
-  --bg-main: #0f172a;
-  --bg-secondary: #1e293b;
-  --bg-glass: rgba(15, 23, 42, 0.75);
-  --bg-card: rgba(30, 41, 59, 0.6);
+  --bg-main: #ffffff;
+  --bg-secondary: #f8fafc;
+  --bg-glass: rgba(255, 255, 255, 0.85);
+  --bg-card: #ffffff;
   
-  --text-main: #f8fafc;
-  --text-muted: #cbd5e1;
-  --text-dim: #64748b;
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --text-dim: #94a3b8;
   
-  --border-glass: rgba(255, 255, 255, 0.08);
-  --border-glow: rgba(129, 140, 248, 0.25);
+  --border-glass: rgba(0, 0, 0, 0.08);
+  --border-glow: rgba(99, 102, 241, 0.25);
   
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.2);
-  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -4px rgba(0, 0, 0, 0.2);
-  --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.2);
-  --shadow-glow: 0 0 40px rgba(129, 140, 248, 0.15);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.08);
   
   --radius-md: 0.75rem;
   --radius-lg: 1.25rem;
@@ -107,7 +107,7 @@ body {
   background-color: var(--bg-glass);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border-glass);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
   transition: all 0.3s ease;
   animation: slideDown 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
@@ -188,7 +188,7 @@ body {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1.25rem;
-  background: var(--bg-secondary);
+  background: var(--bg-main);
   border: 1px solid var(--border-glass);
   border-radius: 16px;
   box-shadow: var(--shadow-lg), var(--shadow-glow);
@@ -201,6 +201,15 @@ body {
 .nav-mega-col h4 {
   font-size: 0.95rem;
   margin-bottom: 0.6rem;
+}
+
+@keyframes slideRightToLeft {
+  0% { opacity: 0; transform: translateX(20px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+
+.nav-mega-col, .nav-mega-col h4, .nav-mega-link {
+  animation: slideRightToLeft 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .nav-mega-link {
@@ -219,7 +228,7 @@ body {
 }
 
 .nav-mega-link:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(99, 102, 241, 0.05);
   color: var(--primary-color);
   transform: translateX(4px);
 }

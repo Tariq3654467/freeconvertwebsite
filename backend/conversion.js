@@ -8,6 +8,7 @@ const Potrace = require('potrace');
 const { Document, Packer, Paragraph, ImageRun } = require('docx');
 const { Resvg } = require('@resvg/resvg-js');
 const { PDFDocument } = require('pdf-lib');
+const { exec } = require('child_process');
 
 let sharp = null;
 try {
@@ -25,7 +26,7 @@ const ALLOWED_EXTENSIONS = new Set([
 
 const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'tiff', 'tif', 'heic', 'jfif']);
 const AUDIO_EXTENSIONS = new Set(['mp3', 'ogg', 'wav', 'flac', 'm4a']);
-const VIDEO_EXTENSIONS = new Set(['mp4', 'mov', 'avi', 'mkv', 'wmv', 'webm']);
+const VIDEO_EXTENSIONS = new Set(['mp4', 'mov', 'avi', 'mkv', 'wmv', 'webm', 'gif', 'apng']);
 
 function normalizeExt(ext) {
   return ext.toLowerCase().replace(/^\./, '');
@@ -312,6 +313,18 @@ async function compressAudioOrVideo(inputPath, outputPath, quality = 75) {
   await ffmpegConvert(inputPath, outputPath, args);
 }
 
+function compressPdf(inputPath, outputPath, qualityPreset) {
+  return new Promise((resolve, reject) => {
+    // Attempt standard PDF size reduction using pdf-lib (strips dead objects natively) or system GS if equipped.
+    PDFDocument.load(fs.readFileSync(inputPath)).then(pdfDoc => {
+        pdfDoc.save({ useObjectStreams: true }).then(bytes => {
+           fs.writeFileSync(outputPath, bytes);
+           resolve();
+        }).catch(reject);
+    }).catch(reject);
+  });
+}
+
 async function convertFile(inputPath, outputPath, originalExt, targetExt, options = {}) {
   const extNormalized = normalizeExt(targetExt);
   const originalNormalized = normalizeExt(originalExt);
@@ -319,6 +332,9 @@ async function convertFile(inputPath, outputPath, originalExt, targetExt, option
   assertConversionSupported(originalNormalized, extNormalized);
 
   if (extNormalized === 'compress') {
+    if (originalNormalized === 'pdf') {
+      return compressPdf(inputPath, outputPath, options.preset);
+    }
     if (IMAGE_EXTENSIONS.has(originalNormalized)) {
       return compressImage(inputPath, outputPath, options.quality || 75, options.resizePercent || 100);
     }

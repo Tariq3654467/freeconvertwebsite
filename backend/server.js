@@ -8,6 +8,7 @@ const { v4: uuidv4 } = require('uuid');
 
 const { createJob, getJob, updateJob } = require('./jobs');
 const { ALLOWED_EXTENSIONS, assertConversionSupported, convertFile } = require('./conversion');
+const { PDFDocument, rgb } = require('pdf-lib');
 const { initScheduler } = require('./utils/cleanup');
 
 const authRoutes = require('./routes/auth');
@@ -164,6 +165,56 @@ app.get('/api/convert/download/:jobId', async (req, res) => {
     return res.status(404).json({ message: 'Result file not found' });
   }
   return res.download(filePath, job.result_filename);
+});
+
+// PDF Editing route
+app.post('/api/convert/edit-pdf', jwtOptional, upload.single('file'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ message: 'No file uploaded' });
+  }
+
+  let actions = [];
+  try {
+    actions = JSON.parse(req.body.actions || '[]');
+  } catch (e) {
+    return res.status(400).json({ message: 'Invalid actions payload' });
+  }
+
+  const inputPath = path.join(UPLOAD_FOLDER, req.file.filename);
+  const outputFilename = `edited_${req.file.filename}`;
+  const outputPath = path.join(UPLOAD_FOLDER, outputFilename);
+
+  try {
+    const pdfBytes = fs.readFileSync(inputPath);
+    const pdfDoc = await PDFDocument.load(pdfBytes);
+    
+    // Simple basic action engine for PDF Editor
+    const pages = pdfDoc.getPages();
+    for (const action of actions) {
+      if (action.type === 'watermark') {
+        const text = action.text || "WATERMARK";
+        pages.forEach(page => {
+           const { width, height } = page.getSize();
+           page.drawText(text, {
+             x: width / 4,
+             y: height / 2,
+             size: 30,
+             color: rgb(0.95, 0.1, 0.1),
+             opacity: 0.5,
+             rotate: { type: 'degrees', angle: 45 }
+           });
+        });
+      }
+    }
+
+    const modifiedBytes = await pdfDoc.save();
+    fs.writeFileSync(outputPath, modifiedBytes);
+    
+    // In a real flow, this would create a job. For immediate testing, we return download immediately.
+    return res.download(outputPath, outputFilename);
+  } catch (err) {
+    return res.status(500).json({ message: `Editing failed: ${err.message}` });
+  }
 });
 
 app.listen(PORT, () => {

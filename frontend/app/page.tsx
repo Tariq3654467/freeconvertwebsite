@@ -2,11 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
-import {
-  ChevronDown, Upload, Cloud, Link as LinkIcon, HardDrive,
-  FileText, Download, CheckCircle2, AlertCircle, Loader2,
-  ShieldCheck, Zap, Lock, Settings2, X
-} from 'lucide-react';
+import { ChevronDown, Upload, Cloud, Link as LinkIcon, HardDrive, FileText, Download, CircleCheck as CheckCircle2, CircleAlert as AlertCircle, Loader as Loader2, ShieldCheck, Zap, Lock, Settings2, X } from 'lucide-react';
 import Link from 'next/link';
 import ToolsGrid from '../components/ToolsGrid';
 import { useAuth } from '../contexts/AuthContext';
@@ -353,7 +349,7 @@ export default function Home({ initialToolId }: HomeProps) {
   return (
     <main className="main-container">
       {/* ── Hero ── */}
-      <div className="hero-section">
+      <div className="hero-section animate-fadeInUp stagger-1">
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(99,102,241,0.08)', color: 'var(--primary-color)', padding: '0.5rem 1rem', borderRadius: '2rem', fontSize: '0.85rem', fontWeight: 700, marginBottom: '1.5rem', border: '1px solid rgba(99,102,241,0.15)' }}>
           <Zap size={14} /> NEW: Prism Engine 2.0 is live!
         </div>
@@ -405,7 +401,7 @@ export default function Home({ initialToolId }: HomeProps) {
       </div>
 
       {/* ── Converter Card ── */}
-      <div className="converter-card" style={{ marginBottom: '8rem' }}>
+      <div className="converter-card animate-fadeInScale" style={{ marginBottom: '8rem' }}>
         {/* Hidden file inputs */}
         <input
           type="file"
@@ -418,7 +414,7 @@ export default function Home({ initialToolId }: HomeProps) {
 
         {/* Choose button */}
         <div className="choose-btn-group">
-          <button className="btn-choose" onClick={() => { fileInputRef.current?.click(); setIsDropdownOpen(false); }}>
+          <button className="btn-choose btn-magnetic btn-shine" onClick={() => { fileInputRef.current?.click(); setIsDropdownOpen(false); }}>
             <Upload size={24} />
             Choose File
           </button>

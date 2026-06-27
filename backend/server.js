@@ -187,30 +187,79 @@ app.post('/api/convert/edit-pdf', jwtOptional, upload.single('file'), async (req
   try {
     const pdfBytes = fs.readFileSync(inputPath);
     const pdfDoc = await PDFDocument.load(pdfBytes);
-    
-    // Simple basic action engine for PDF Editor
-    const pages = pdfDoc.getPages();
+    let pages = pdfDoc.getPages();
+    const totalPages = pages.length;
+
+    // Handle delete-page actions first
+    const deletePages = [];
+    for (const action of actions) {
+      if (action.type === 'delete-page' && action.pages) {
+        deletePages.push(...action.pages);
+      }
+    }
+    // Remove duplicates and sort descending
+    const uniqueDeletePages = [...new Set(deletePages)].sort((a, b) => b - a);
+    for (const pageNum of uniqueDeletePages) {
+      if (pageNum >= 1 && pageNum <= pages.length) {
+        pdfDoc.removePage(pageNum - 1);
+      }
+    }
+    // Refresh pages after deletion
+    pages = pdfDoc.getPages();
+
+    // Handle rotation actions
+    const rotations = {};
+    for (const action of actions) {
+      if (action.type === 'rotate' && action.pages && action.angle !== undefined) {
+        for (const pageNum of action.pages) {
+          if (pageNum >= 1 && pageNum <= pages.length) {
+            const targetPage = pages[pageNum - 1];
+            if (targetPage) {
+              const currentRotation = targetPage.getRotation().angle;
+              const newRotation = currentRotation + (action.angle || 90);
+              targetPage.setRotation({ type: 'degrees', angle: newRotation });
+            }
+          }
+        }
+      }
+    }
+
+    // Handle watermark actions
     for (const action of actions) {
       if (action.type === 'watermark') {
         const text = action.text || "WATERMARK";
+        const size = action.size || 30;
+        const opacity = action.opacity !== undefined ? action.opacity : 0.5;
+        const colorHex = action.color || "#ef4444";
+        const r = parseInt(colorHex.slice(1, 3), 16) / 255;
+        const g = parseInt(colorHex.slice(3, 5), 16) / 255;
+        const b = parseInt(colorHex.slice(5, 7), 16) / 255;
         pages.forEach(page => {
            const { width, height } = page.getSize();
            page.drawText(text, {
              x: width / 4,
              y: height / 2,
-             size: 30,
-             color: rgb(0.95, 0.1, 0.1),
-             opacity: 0.5,
+             size: size,
+             color: rgb(r, g, b),
+             opacity: opacity,
              rotate: { type: 'degrees', angle: 45 }
            });
         });
       }
     }
 
-    const modifiedBytes = await pdfDoc.save();
+    // Handle compress actions
+    const hasCompress = actions.some(a => a.type === 'compress');
+    let modifiedBytes = await pdfDoc.save({ useObjectStreams: true });
     fs.writeFileSync(outputPath, modifiedBytes);
-    
-    // In a real flow, this would create a job. For immediate testing, we return download immediately.
+
+    if (hasCompress) {
+      // Re-save to strip dead objects and reduce size
+      const pdfDoc2 = await PDFDocument.load(fs.readFileSync(outputPath));
+      const compressedBytes = await pdfDoc2.save({ useObjectStreams: true });
+      fs.writeFileSync(outputPath, compressedBytes);
+    }
+
     return res.download(outputPath, outputFilename);
   } catch (err) {
     return res.status(500).json({ message: `Editing failed: ${err.message}` });

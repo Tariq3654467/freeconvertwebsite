@@ -20,10 +20,10 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className="navbar">
+      <nav className="navbar animate-fadeInDown">
         <div className="navbar-left">
           <button
-            className="menu-btn"
+            className="menu-btn btn-magnetic"
             style={{ 
               background: 'var(--bg-secondary)', 
               border: '1px solid var(--border-glass)', 
@@ -39,7 +39,7 @@ export default function Navbar() {
           >
             <Menu size={20} />
           </button>
-          <Link href="/" className="logo-container">
+          <Link href="/" className="logo-container btn-magnetic">
             <div className="logo-icon">
               <RefreshCw size={20} />
             </div>

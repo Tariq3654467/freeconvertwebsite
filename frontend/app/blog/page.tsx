@@ -41,8 +41,8 @@ export default function BlogPage() {
   };
 
   return (
-    <main className="blog-main">
-      <div className="blog-hero">
+    <main className="blog-main animate-fadeInUp">
+      <div className="blog-hero animate-fadeInUp stagger-1">
         <h1 className="blog-hero-title">Latest Articles</h1>
         <p className="blog-hero-subtitle">
           Discover insights, tips, and stories about file conversion
@@ -54,8 +54,8 @@ export default function BlogPage() {
       ) : (
         <>
           <div className="blog-grid">
-            {blogs.map((blog) => (
-              <Link key={blog.id} href={`/blog/${blog.slug}`} className="blog-card">
+            {blogs.map((blog, index) => (
+              <Link key={blog.id} href={`/blog/${blog.slug}`} className="blog-card card-lift animate-fadeInUp" style={{ animationDelay: `${index * 0.08}s` }}>
                 <div className="blog-card-header">
                   {blog.category && (
                     <span className="blog-category">

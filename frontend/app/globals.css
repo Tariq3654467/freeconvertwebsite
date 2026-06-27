@@ -1,27 +1,27 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 :root {
-  --primary-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
-  --primary-color: #6366f1;
-  --primary-hover: #4f46e5;
+  --primary-gradient: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
+  --primary-color: #818cf8;
+  --primary-hover: #6366f1;
   --accent-color: #f472b6;
   
-  --bg-main: #ffffff;
-  --bg-secondary: #f8fafc;
-  --bg-glass: rgba(255, 255, 255, 0.85);
-  --bg-card: #ffffff;
+  --bg-main: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-glass: rgba(15, 23, 42, 0.75);
+  --bg-card: rgba(30, 41, 59, 0.6);
   
-  --text-main: #0f172a;
-  --text-muted: #475569;
-  --text-dim: #94a3b8;
+  --text-main: #f8fafc;
+  --text-muted: #cbd5e1;
+  --text-dim: #64748b;
   
-  --border-glass: rgba(0, 0, 0, 0.08);
-  --border-glow: rgba(99, 102, 241, 0.25);
+  --border-glass: rgba(255, 255, 255, 0.08);
+  --border-glow: rgba(129, 140, 248, 0.25);
   
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
-  --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
-  --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.08);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -4px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.2);
+  --shadow-glow: 0 0 40px rgba(129, 140, 248, 0.15);
   
   --radius-md: 0.75rem;
   --radius-lg: 1.25rem;
@@ -105,9 +105,21 @@ body {
   align-items: center;
   padding: 1.25rem 2rem;
   background-color: var(--bg-glass);
-  backdrop-filter: blur(16px);
+  backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border-glass);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
+  animation: slideDown 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes menuFade {
+  from { opacity: 0; transform: translateY(-10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .logo-container {
@@ -170,18 +182,20 @@ body {
 
 .nav-mega-panel {
   position: absolute;
-  top: 2rem;
+  top: 2.5rem;
   left: -8rem;
   width: min(940px, 90vw);
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem;
-  background: #fff;
+  gap: 1.25rem;
+  background: var(--bg-secondary);
   border: 1px solid var(--border-glass);
-  border-radius: 14px;
-  box-shadow: var(--shadow-lg);
-  padding: 1rem;
+  border-radius: 16px;
+  box-shadow: var(--shadow-lg), var(--shadow-glow);
+  padding: 1.5rem;
   z-index: 1100;
+  animation: menuFade 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: top;
 }
 
 .nav-mega-col h4 {
@@ -195,14 +209,19 @@ body {
   text-align: left;
   border: none;
   background: transparent;
-  padding: 0.35rem 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
   font-size: 0.9rem;
   color: var(--text-muted);
   cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 2px;
 }
 
 .nav-mega-link:hover {
+  background: rgba(255, 255, 255, 0.05);
   color: var(--primary-color);
+  transform: translateX(4px);
 }
 
 /* Main Container & Hero */
@@ -215,7 +234,7 @@ body {
 
 .site-footer {
   border-top: 1px solid var(--border-glass);
-  background: #fff;
+  background: var(--bg-secondary);
   margin-top: 5rem;
 }
 
@@ -262,7 +281,7 @@ body {
 }
 
 .tool-info-card {
-  background: #fff;
+  background: var(--bg-secondary);
   border: 1px solid var(--border-glass);
   border-radius: 16px;
   padding: 2rem;
@@ -304,7 +323,7 @@ body {
 
 .tool-related {
   margin-top: 1.25rem;
-  background: #fff;
+  background: var(--bg-secondary);
   border: 1px solid var(--border-glass);
   border-radius: 16px;
   padding: 1.5rem 2rem;
@@ -546,7 +565,7 @@ body {
 }
 
 .category-column {
-  background: #ffffff;
+  background: var(--bg-card);
   border: 1px solid rgba(0, 0, 0, 0.05);
   border-radius: var(--radius-lg);
   padding: 2.5rem;
@@ -556,7 +575,7 @@ body {
 
 .category-column:hover {
   border-color: var(--primary-color);
-  background: #ffffff;
+  background: var(--bg-card);
   transform: translateY(-8px);
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08);
 }
@@ -578,7 +597,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #fdfdfd;
+  background: var(--bg-secondary);
   border: 1px solid rgba(0, 0, 0, 0.04);
   border-radius: var(--radius-md);
   padding: 1.125rem 1.5rem;
@@ -662,7 +681,7 @@ body {
 
 .search-bar-container:focus-within {
   border-color: var(--primary-color);
-  background: #ffffff;
+  background: var(--bg-card);
   box-shadow: 0 0 20px rgba(99, 102, 241, 0.1);
 }
 

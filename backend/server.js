@@ -5,13 +5,22 @@ const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
+
 const { createJob, getJob, updateJob } = require('./jobs');
 const { ALLOWED_EXTENSIONS, assertConversionSupported, convertFile } = require('./conversion');
+const { initScheduler } = require('./utils/cleanup');
+
+const authRoutes = require('./routes/auth');
+const blogRoutes = require('./routes/blog');
+const { jwtOptional } = require('./middleware/auth');
 
 const UPLOAD_FOLDER = process.env.UPLOAD_FOLDER || path.join(__dirname, 'uploads');
 const PORT = process.env.PORT || 5000;
 
 fs.mkdirSync(UPLOAD_FOLDER, { recursive: true });
+
+// Background file cleanup
+initScheduler();
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, UPLOAD_FOLDER),
@@ -24,9 +33,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: {
-    fileSize: 1 * 1024 * 1024 * 1024,
-  },
+  limits: { fileSize: 1 * 1024 * 1024 * 1024 }, // 1GB
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase().replace('.', '');
     if (!ALLOWED_EXTENSIONS.has(ext)) {
@@ -41,7 +48,12 @@ app.use(cors({ origin: process.env.ALLOWED_ORIGINS?.split(',') || '*' }));
 app.use(express.json({ limit: '1gb' }));
 app.use(express.urlencoded({ extended: true, limit: '1gb' }));
 
-app.post('/api/convert/upload', upload.single('file'), (req, res) => {
+// Mount routes
+app.use('/api/auth', authRoutes);
+app.use('/api/auth/blogs', blogRoutes); // Using this prefix based on previous layout
+
+// Convert routes
+app.post('/api/convert/upload', jwtOptional, upload.single('file'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: 'No file uploaded' });
   }
@@ -59,12 +71,13 @@ app.post('/api/convert/upload', upload.single('file'), (req, res) => {
     return res.status(400).json({ message: err.message });
   }
 
-  const job = createJob(req.file.filename, targetFormat);
+  const userId = req.user ? req.user.user_id : null;
+  const job = await createJob(req.file.filename, targetFormat, userId);
   return res.status(201).json({ message: 'File uploaded', job_id: job.id });
 });
 
 app.post('/api/convert/process/:jobId', async (req, res) => {
-  const job = getJob(req.params.jobId);
+  const job = await getJob(req.params.jobId);
   if (!job) {
     return res.status(404).json({ message: 'Job not found' });
   }
@@ -73,7 +86,7 @@ app.post('/api/convert/process/:jobId', async (req, res) => {
   }
 
   job.status = 'processing';
-  updateJob(job);
+  await updateJob(job);
 
   const inputPath = path.join(UPLOAD_FOLDER, job.original_filename);
   const originalExt = path.extname(job.original_filename).slice(1).toLowerCase();
@@ -85,18 +98,18 @@ app.post('/api/convert/process/:jobId', async (req, res) => {
     await convertFile(inputPath, outputPath, originalExt, job.target_format, options);
     job.status = 'done';
     job.result_filename = outputFilename;
-    updateJob(job);
+    await updateJob(job);
     return res.status(200).json({ message: 'Job complete', job_id: job.id, status: 'done' });
   } catch (err) {
     job.status = 'failed';
     job.error_message = err.message;
-    updateJob(job);
+    await updateJob(job);
     return res.status(500).json({ message: `Conversion failed: ${err.message}` });
   }
 });
 
 app.post('/api/convert/compress/:jobId', async (req, res) => {
-  const job = getJob(req.params.jobId);
+  const job = await getJob(req.params.jobId);
   if (!job) {
     return res.status(404).json({ message: 'Job not found' });
   }
@@ -105,7 +118,7 @@ app.post('/api/convert/compress/:jobId', async (req, res) => {
   }
 
   job.status = 'processing';
-  updateJob(job);
+  await updateJob(job);
 
   const inputPath = path.join(UPLOAD_FOLDER, job.original_filename);
   const originalExt = path.extname(job.original_filename).slice(1).toLowerCase();
@@ -120,26 +133,26 @@ app.post('/api/convert/compress/:jobId', async (req, res) => {
     await convertFile(inputPath, outputPath, originalExt, 'compress', options);
     job.status = 'done';
     job.result_filename = outputFilename;
-    updateJob(job);
+    await updateJob(job);
     return res.status(200).json({ message: 'Compression complete', job_id: job.id, status: 'done' });
   } catch (err) {
     job.status = 'failed';
     job.error_message = err.message;
-    updateJob(job);
+    await updateJob(job);
     return res.status(500).json({ message: `Compression failed: ${err.message}` });
   }
 });
 
-app.get('/api/convert/status/:jobId', (req, res) => {
-  const job = getJob(req.params.jobId);
+app.get('/api/convert/status/:jobId', async (req, res) => {
+  const job = await getJob(req.params.jobId);
   if (!job) {
     return res.status(404).json({ message: 'Job not found' });
   }
   return res.json({ status: job.status, error_message: job.error_message ?? null });
 });
 
-app.get('/api/convert/download/:jobId', (req, res) => {
-  const job = getJob(req.params.jobId);
+app.get('/api/convert/download/:jobId', async (req, res) => {
+  const job = await getJob(req.params.jobId);
   if (!job) {
     return res.status(404).json({ message: 'Job not found' });
   }

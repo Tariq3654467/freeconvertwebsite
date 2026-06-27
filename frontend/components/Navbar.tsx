@@ -10,7 +10,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 export default function Navbar() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [activeMenu, setActiveMenu] = useState<'Convert' | 'Compress' | null>(null);
+  const [activeMenu, setActiveMenu] = useState<'Convert' | 'Compress' | 'Tools' | null>(null);
   const { user, logout, isAuthenticated } = useAuth();
   const router = useRouter();
 
@@ -46,7 +46,7 @@ export default function Navbar() {
             <span>PrismConvert</span>
           </Link>
           <div className="navbar-left-tools">
-            {(['Convert', 'Compress'] as const).map((section) => (
+            {(['Convert', 'Compress', 'Tools'] as const).map((section) => (
               <div
                 key={section}
                 className="nav-mega"
@@ -67,7 +67,11 @@ export default function Navbar() {
                               key={tool.id}
                               className="nav-mega-link"
                               onClick={() => {
-                                router.push(`/convert/${tool.id}`);
+                                if (tool.id === 'pdf-editor') {
+                                  router.push('/pdf-editor');
+                                } else {
+                                  router.push(`/convert/${tool.id}`);
+                                }
                                 setActiveMenu(null);
                               }}
                             >

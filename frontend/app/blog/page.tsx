@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import axios from 'axios';
 import { Clock, Folder, ChevronRight } from 'lucide-react';
+import PageContentRenderer from '../../components/PageContentRenderer';
 
 const API = 'http://127.0.0.1:5000';
 
@@ -15,6 +16,9 @@ interface Blog {
   category: string;
   view_count: number;
   created_at: string;
+  author_name?: string;
+  author_profession?: string;
+  featured_image?: string;
 }
 
 export default function BlogPage() {
@@ -49,6 +53,31 @@ export default function BlogPage() {
         </p>
       </div>
 
+      <section className="tool-info-wrap" style={{ marginTop: '1rem', marginBottom: '2rem' }}>
+        <div className="tool-info-card">
+          <PageContentRenderer
+            pageKey="blog-page"
+            fallbackTitle="Helpful guides for file conversion"
+            fallbackSubtitle="Explore practical articles, tips, and walkthroughs for working with documents, media, and everyday file tasks."
+            fallbackBody="Whether you need a quick how-to or a deeper explanation, our blog is designed to make file processing easier to understand."
+          />
+          <div className="tool-feature-grid">
+            <article className="tool-feature-item">
+              <h3>Step-by-step guides</h3>
+              <p>Learn how to prepare files, choose the right format, and improve output quality.</p>
+            </article>
+            <article className="tool-feature-item">
+              <h3>Practical tips</h3>
+              <p>Discover time-saving workflows for working with images, PDFs, and multimedia files.</p>
+            </article>
+            <article className="tool-feature-item">
+              <h3>Fresh updates</h3>
+              <p>New articles are added regularly to keep up with common file challenges.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
       {loading ? (
         <div className="blog-container"><p>Loading articles...</p></div>
       ) : (
@@ -56,7 +85,12 @@ export default function BlogPage() {
           <div className="blog-grid">
             {blogs.map((blog, index) => (
               <Link key={blog.id} href={`/blog/${blog.slug}`} className="blog-card card-lift animate-fadeInUp" style={{ animationDelay: `${index * 0.08}s` }}>
-                <div className="blog-card-header">
+                {blog.featured_image && (
+                <div className="blog-card-image-wrap">
+                  <img src={blog.featured_image} alt={blog.title} className="blog-card-image" />
+                </div>
+              )}
+              <div className="blog-card-header">
                   {blog.category && (
                     <span className="blog-category">
                       <Folder size={14} /> {blog.category}
@@ -64,6 +98,9 @@ export default function BlogPage() {
                   )}
                 </div>
                 <h2 className="blog-card-title">{blog.title}</h2>
+                {blog.author_name && (
+                  <p className="blog-card-author">By {blog.author_name}{blog.author_profession ? ` · ${blog.author_profession}` : ''}</p>
+                )}
                 <p className="blog-card-excerpt">{blog.excerpt}</p>
                 <div className="blog-card-footer">
                   <span className="blog-meta">

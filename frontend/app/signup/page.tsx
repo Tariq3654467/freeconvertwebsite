@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff } from 'lucide-react';
 import axios from 'axios';
+import PageContentRenderer from '../../components/PageContentRenderer';
 
 
 export default function Signup() {
@@ -54,12 +55,26 @@ export default function Signup() {
 
   return (
     <div className="auth-container">
-      <div className="auth-card">
-        <h1 className="auth-title">Join Prism Engine</h1>
-        <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginBottom: '2.5rem', marginTop: '-1.5rem', fontSize: '0.95rem' }}>
-          Experience the future of file processing.
-        </p>
-        <form onSubmit={handleSignup}>
+      <div style={{ maxWidth: '940px', width: '100%', display: 'grid', gap: '1.25rem' }}>
+        <div className="auth-card" style={{ maxWidth: 'none', padding: '1.5rem 2rem' }}>
+          <PageContentRenderer
+            pageKey="signup-page"
+            fallbackTitle="Create your Prism Engine account"
+            fallbackSubtitle="Join today to unlock faster uploads, batch workflows, and a better experience for recurring file tasks."
+            fallbackBody="Signing up makes it easier to manage your work, save time, and access more advanced tools whenever you need them."
+          />
+          <div style={{ display: 'grid', gap: '0.5rem', marginTop: '1rem', color: 'var(--text-muted)' }}>
+            <div>• Secure account access for repeated sessions</div>
+            <div>• Faster handling of conversion and compression jobs</div>
+            <div>• A cleaner, more personal workflow</div>
+          </div>
+        </div>
+        <div className="auth-card">
+          <h1 className="auth-title">Join Prism Engine</h1>
+          <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginBottom: '2.5rem', marginTop: '-1.5rem', fontSize: '0.95rem' }}>
+            Experience the future of file processing.
+          </p>
+          <form onSubmit={handleSignup}>
           <div className="form-group">
             <label className="form-label" htmlFor="username">Username</label>
             <input 
@@ -134,7 +149,8 @@ export default function Signup() {
               Already a member? <Link href="/login" className="auth-link">Sign In</Link>
             </p>
           </div>
-        </form>
+          </form>
+        </div>
       </div>
     </div>
   );

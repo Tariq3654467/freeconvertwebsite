@@ -17,6 +17,12 @@ interface Blog {
   view_count: number;
   created_at: string;
   slug: string;
+  featured_image?: string;
+  author_name?: string;
+  author_profession?: string;
+  author_linkedin?: string;
+  author_facebook?: string;
+  author_instagram?: string;
 }
 
 export default function BlogDetailPage() {
@@ -81,6 +87,11 @@ export default function BlogDetailPage() {
       </button>
 
       <article className="blog-detail-container">
+        {blog.featured_image && (
+          <div className="blog-detail-image-wrap">
+            <img src={blog.featured_image} alt={blog.title} className="blog-detail-image" />
+          </div>
+        )}
         <div className="blog-detail-header">
           <h1 className="blog-detail-title">{blog.title}</h1>
           <div className="blog-detail-meta">
@@ -93,6 +104,23 @@ export default function BlogDetailPage() {
               </span>
             )}
           </div>
+          {(blog.author_name || blog.author_profession) && (
+            <div className="blog-detail-author">
+              <p className="blog-detail-author-name">{blog.author_name}</p>
+              {blog.author_profession ? <p className="blog-detail-author-profession">{blog.author_profession}</p> : null}
+              <div className="blog-detail-author-links">
+                {blog.author_linkedin && (
+                  <a href={blog.author_linkedin} target="_blank" rel="noreferrer">LinkedIn</a>
+                )}
+                {blog.author_facebook && (
+                  <a href={blog.author_facebook} target="_blank" rel="noreferrer">Facebook</a>
+                )}
+                {blog.author_instagram && (
+                  <a href={blog.author_instagram} target="_blank" rel="noreferrer">Instagram</a>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="blog-detail-content">

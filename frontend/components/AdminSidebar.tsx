@@ -11,6 +11,7 @@ import {
   LogOut,
   ArrowLeft,
   Crosshair,
+  FileCog,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -51,6 +52,13 @@ export default function AdminSidebar() {
           <FolderOpen size={18} strokeWidth={1.75} />
           <span>Categories</span>
         </span>
+        <Link
+          href="/admin/pages"
+          className={`admin-sidebar-link ${isActive('/admin/pages') ? 'admin-sidebar-link--active' : ''}`}
+        >
+          <FileCog size={18} strokeWidth={1.75} />
+          <span>Pages</span>
+        </Link>
         <Link
           href="/admin/users"
           className={`admin-sidebar-link ${isActive('/admin/users') ? 'admin-sidebar-link--active' : ''}`}

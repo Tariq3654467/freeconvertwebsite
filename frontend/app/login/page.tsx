@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
+import PageContentRenderer from '../../components/PageContentRenderer';
 
 
 export default function Login() {
@@ -49,12 +50,26 @@ export default function Login() {
 
   return (
     <div className="auth-container">
-      <div className="auth-card">
-        <h1 className="auth-title">Access Prism Engine</h1>
-        <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginBottom: '2.5rem', marginTop: '-1.5rem', fontSize: '0.95rem' }}>
-          Welcome back. The engine is ready.
-        </p>
-        <form onSubmit={handleLogin}>
+      <div style={{ maxWidth: '940px', width: '100%', display: 'grid', gap: '1.25rem' }}>
+        <div className="auth-card" style={{ maxWidth: 'none', padding: '1.5rem 2rem' }}>
+          <PageContentRenderer
+            pageKey="login-page"
+            fallbackTitle="Welcome back to Prism Engine"
+            fallbackSubtitle="Sign in to continue converting files faster, upload more content, and keep your recent work in one place."
+            fallbackBody="Your account unlocks batch tools, secure uploads, and access to the full workspace experience."
+          />
+          <div style={{ display: 'grid', gap: '0.5rem', marginTop: '1rem', color: 'var(--text-muted)' }}>
+            <div>• Batch uploads for multiple files at once</div>
+            <div>• Faster access to recent convert and compress jobs</div>
+            <div>• A smoother experience for frequent users</div>
+          </div>
+        </div>
+        <div className="auth-card">
+          <h1 className="auth-title">Access Prism Engine</h1>
+          <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginBottom: '2.5rem', marginTop: '-1.5rem', fontSize: '0.95rem' }}>
+            Welcome back. The engine is ready.
+          </p>
+          <form onSubmit={handleLogin}>
           <div className="form-group">
             <label className="form-label" htmlFor="email">Email Address</label>
             <input 
@@ -95,7 +110,8 @@ export default function Login() {
               New to Prism? <Link href="/signup" className="auth-link">Create Account</Link>
             </p>
           </div>
-        </form>
+          </form>
+        </div>
       </div>
     </div>
   );

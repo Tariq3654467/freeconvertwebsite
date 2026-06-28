@@ -1,9 +1,34 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const { jwtRequired, jwtOptional, isAdmin } = require('../middleware/auth');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const router = express.Router();
 const prisma = new PrismaClient();
 const { v4: uuidv4 } = require('uuid');
+
+const UPLOAD_FOLDER = path.join(__dirname, '..', 'uploads');
+fs.mkdirSync(UPLOAD_FOLDER, { recursive: true });
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, UPLOAD_FOLDER),
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname).toLowerCase();
+      const name = `${uuidv4()}${ext}`;
+      cb(null, name);
+    }
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB featured image cap
+  fileFilter: (req, file, cb) => {
+    const allowed = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (!allowed.includes(ext)) {
+      return cb(new Error('Only JPG, PNG, GIF, and WEBP images are allowed'), false);
+    }
+    cb(null, true);
+  }
+});
 
 function slugify(text) {
   return text.toLowerCase().trim()
@@ -34,10 +59,34 @@ router.get('/', async (req, res) => {
   });
 });
 
-router.post('/', jwtRequired, isAdmin, async (req, res) => {
-  const { title, content, excerpt, category, tags, featured_image, status = 'draft' } = req.body;
+router.post('/', jwtRequired, isAdmin, upload.single('featured_image'), async (req, res) => {
+  const {
+    title,
+    content,
+    excerpt,
+    category,
+    tags,
+    status = 'draft',
+    author_name,
+    author_profession,
+    author_linkedin,
+    author_facebook,
+    author_instagram,
+    meta_title,
+    meta_description,
+    keywords
+  } = req.body;
+
   if (!title || !content) {
     return res.status(400).json({ message: 'Title and content are required' });
+  }
+
+  if (title.length > 60) {
+    return res.status(400).json({ message: 'Title must be 60 characters or less' });
+  }
+
+  if (meta_description && meta_description.length > 160) {
+    return res.status(400).json({ message: 'Meta description must be 160 characters or less' });
   }
 
   let slug = slugify(title);
@@ -45,6 +94,14 @@ router.post('/', jwtRequired, isAdmin, async (req, res) => {
   if (existing) {
     slug = `${slug}-${uuidv4().substring(0, 8)}`;
   }
+
+  const tagsArray = Array.isArray(tags)
+    ? tags
+    : typeof tags === 'string'
+    ? tags.split(',').map((tag) => tag.trim()).filter(Boolean)
+    : [];
+
+  const featuredImagePath = req.file ? `/uploads/${req.file.filename}` : req.body.featured_image;
 
   const blog = await prisma.blog.create({
     data: {
@@ -54,9 +111,17 @@ router.post('/', jwtRequired, isAdmin, async (req, res) => {
       content,
       excerpt,
       category,
-      tags: tags || [],
-      featured_image,
-      status
+      tags: tagsArray,
+      featured_image: featuredImagePath,
+      status,
+      author_name,
+      author_profession,
+      author_linkedin,
+      author_facebook,
+      author_instagram,
+      meta_title,
+      meta_description,
+      keywords
     }
   });
 
@@ -111,7 +176,7 @@ router.get('/:id', jwtOptional, async (req, res) => {
   return res.status(200).json(blog);
 });
 
-router.put('/:id', jwtRequired, isAdmin, async (req, res) => {
+router.put('/:id', jwtRequired, isAdmin, upload.single('featured_image'), async (req, res) => {
   const blogId = req.params.id;
   const blog = await prisma.blog.findUnique({ where: { id: blogId } });
   if (!blog) return res.status(404).json({ message: 'Blog not found' });
@@ -122,13 +187,47 @@ router.put('/:id', jwtRequired, isAdmin, async (req, res) => {
 
   const data = req.body;
   const updateData = {};
-  if (data.title) updateData.title = data.title;
+
+  if (data.title) {
+    if (data.title.length > 60) {
+      return res.status(400).json({ message: 'Title must be 60 characters or less' });
+    }
+    updateData.title = data.title;
+  }
+
   if (data.content) updateData.content = data.content;
   if (data.excerpt !== undefined) updateData.excerpt = data.excerpt;
   if (data.category !== undefined) updateData.category = data.category;
-  if (data.tags !== undefined) updateData.tags = data.tags;
-  if (data.featured_image !== undefined) updateData.featured_image = data.featured_image;
+
+  if (data.tags !== undefined) {
+    updateData.tags = Array.isArray(data.tags)
+      ? data.tags
+      : String(data.tags)
+          .split(',')
+          .map((tag) => tag.trim())
+          .filter(Boolean);
+  }
+
+  if (req.file) {
+    updateData.featured_image = `/uploads/${req.file.filename}`;
+  } else if (data.featured_image !== undefined) {
+    updateData.featured_image = data.featured_image;
+  }
+
   if (data.status) updateData.status = data.status;
+  if (data.author_name !== undefined) updateData.author_name = data.author_name;
+  if (data.author_profession !== undefined) updateData.author_profession = data.author_profession;
+  if (data.author_linkedin !== undefined) updateData.author_linkedin = data.author_linkedin;
+  if (data.author_facebook !== undefined) updateData.author_facebook = data.author_facebook;
+  if (data.author_instagram !== undefined) updateData.author_instagram = data.author_instagram;
+  if (data.meta_title !== undefined) updateData.meta_title = data.meta_title;
+  if (data.meta_description !== undefined) {
+    if (data.meta_description.length > 160) {
+      return res.status(400).json({ message: 'Meta description must be 160 characters or less' });
+    }
+    updateData.meta_description = data.meta_description;
+  }
+  if (data.keywords !== undefined) updateData.keywords = data.keywords;
 
   const updatedBlog = await prisma.blog.update({
     where: { id: blogId },

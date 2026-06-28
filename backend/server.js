@@ -13,6 +13,7 @@ const { initScheduler } = require('./utils/cleanup');
 
 const authRoutes = require('./routes/auth');
 const blogRoutes = require('./routes/blog');
+const pageRoutes = require('./routes/pages');
 const { jwtOptional } = require('./middleware/auth');
 
 const UPLOAD_FOLDER = process.env.UPLOAD_FOLDER || path.join(__dirname, 'uploads');
@@ -22,6 +23,10 @@ fs.mkdirSync(UPLOAD_FOLDER, { recursive: true });
 
 // Background file cleanup
 initScheduler();
+
+const app = express();
+
+app.use('/uploads', express.static(UPLOAD_FOLDER));
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, UPLOAD_FOLDER),
@@ -44,7 +49,6 @@ const upload = multer({
   },
 });
 
-const app = express();
 app.use(cors({ origin: process.env.ALLOWED_ORIGINS?.split(',') || '*' }));
 app.use(express.json({ limit: '1gb' }));
 app.use(express.urlencoded({ extended: true, limit: '1gb' }));
@@ -52,6 +56,7 @@ app.use(express.urlencoded({ extended: true, limit: '1gb' }));
 // Mount routes
 app.use('/api/auth', authRoutes);
 app.use('/api/auth/blogs', blogRoutes); // Using this prefix based on previous layout
+app.use('/api/pages', pageRoutes);
 
 // Convert routes
 app.post('/api/convert/upload', jwtOptional, upload.single('file'), async (req, res) => {

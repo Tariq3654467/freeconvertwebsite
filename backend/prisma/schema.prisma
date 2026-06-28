@@ -46,11 +46,19 @@ model Blog {
   content        String
   excerpt        String?
   category       String?
-  tags           Json?         @default("[]")
-  featured_image String?
-  status         String        @default("draft")
-  view_count     Int           @default(0)
-  created_at     DateTime      @default(now())
+  tags               Json?         @default("[]")
+  featured_image     String?
+  author_name        String?
+  author_profession  String?
+  author_linkedin    String?
+  author_facebook    String?
+  author_instagram   String?
+  meta_title         String?
+  meta_description   String?
+  keywords           String?
+  status             String        @default("draft")
+  view_count         Int           @default(0)
+  created_at         DateTime      @default(now())
   updated_at     DateTime      @updatedAt
 
   admin          Admin         @relation(fields: [admin_id], references: [id])
@@ -71,6 +79,18 @@ model BlogComment {
   user        User?    @relation(fields: [user_id], references: [id])
 
   @@map("blog_comments")
+}
+
+model PageContent {
+  id         Int      @id @default(autoincrement())
+  page_key   String   @unique
+  title      String?
+  subtitle   String?
+  body       String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("page_contents")
 }
 
 model AnonymousDailyUsage {

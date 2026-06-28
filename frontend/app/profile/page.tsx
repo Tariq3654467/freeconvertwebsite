@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { User, Mail, Shield, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import PageContentRenderer from '../../components/PageContentRenderer';
 
 export default function ProfilePage() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -50,6 +51,15 @@ export default function ProfilePage() {
         <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginBottom: '2rem', fontSize: '0.95rem' }}>
           Signed in as PrismConvert user.
         </p>
+
+        <div className="auth-card" style={{ maxWidth: 'none', padding: '1.25rem 1.25rem', marginBottom: '1rem' }}>
+          <PageContentRenderer
+            pageKey="profile-page"
+            fallbackTitle="Your account overview"
+            fallbackSubtitle="Manage your details, review your role, and continue working with the tools you use most."
+            fallbackBody="This page gives you a quick summary of your profile and the actions available to you."
+          />
+        </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div

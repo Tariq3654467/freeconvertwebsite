@@ -430,6 +430,41 @@
   margin-top: 1.75rem;
 }
 
+.admin-page-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 1.5rem;
+  align-items: start;
+  margin-top: 1.25rem;
+}
+
+.admin-primary-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1.35rem;
+}
+
+.admin-sidebar-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.35rem;
+}
+
+.admin-card-section {
+  background: #fff;
+  border: 1px solid #e4e4e7;
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+}
+
+.admin-card-section h2 {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+  color: #18181b;
+  font-weight: 700;
+}
+
 .admin-form-group {
   display: flex;
   flex-direction: column;
@@ -440,6 +475,16 @@
   font-weight: 600;
   color: #27272a;
   font-size: 0.8125rem;
+}
+
+.admin-image-preview {
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  border-radius: 12px;
+  border: 1px solid #e4e4e7;
+  object-fit: cover;
+  margin-top: 0.75rem;
 }
 
 .admin-form-input,

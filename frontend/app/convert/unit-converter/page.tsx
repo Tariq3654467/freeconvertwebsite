@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
+import PageContentRenderer from '../../../components/PageContentRenderer';
 
 // ── Conversion data ──────────────────────────────────────────────────────────
 const CATEGORIES: Record<string, { units: { label: string; factor: number }[] }> = {
@@ -138,16 +139,7 @@ export default function UnitConverterPage() {
         <span>Unit Converter</span>
       </nav>
 
-      <h1 style={{
-        fontSize: '2.5rem',
-        fontWeight: 800,
-        textAlign: 'center',
-        marginBottom: '2.5rem',
-        color: 'var(--primary-color)',
-        letterSpacing: '-0.02em'
-      }}>
-        Unit Converter
-      </h1>
+      <PageContentRenderer pageKey="unit-converter-page" fallbackTitle="Unit Converter" fallbackSubtitle="Convert between common measurement units instantly." fallbackBody="" className="" />
 
       {/* Converter Card */}
       <div style={{

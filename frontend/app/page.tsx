@@ -5,6 +5,7 @@ import axios from 'axios';
 import { ChevronDown, Upload, Cloud, Link as LinkIcon, HardDrive, FileText, Download, CircleCheck as CheckCircle2, CircleAlert as AlertCircle, Loader as Loader2, ShieldCheck, Zap, Lock, Settings2, X } from 'lucide-react';
 import Link from 'next/link';
 import ToolsGrid from '../components/ToolsGrid';
+import PageContentRenderer from '../components/PageContentRenderer';
 import { useAuth } from '../contexts/AuthContext';
 import { getToolById } from '../constants/tools';
 
@@ -684,6 +685,31 @@ export default function Home({ initialToolId }: HomeProps) {
           <Link href="/signup" style={{ color: 'var(--primary-color)', fontWeight: 700, textDecoration: 'none' }}>Upgrade to Pro</Link> for more.
         </div>
       </div>
+
+      <section className="tool-info-wrap" style={{ marginTop: '0', marginBottom: '3rem' }}>
+        <div className="tool-info-card">
+          <PageContentRenderer
+            pageKey="home-page"
+            fallbackTitle="Everything you need for fast file workflows"
+            fallbackSubtitle="Upload once, convert or compress instantly, and keep your files organized."
+            fallbackBody="From PDFs and images to audio and video, Prism Engine makes everyday file tasks simple, secure, and fast."
+          />
+          <div className="tool-feature-grid">
+            <article className="tool-feature-item">
+              <h3>Fast processing</h3>
+              <p>Convert files in seconds without sacrificing clarity or reliability.</p>
+            </article>
+            <article className="tool-feature-item">
+              <h3>Simple for everyone</h3>
+              <p>Guest uploads and signed-in batch processing make the workflow flexible.</p>
+            </article>
+            <article className="tool-feature-item">
+              <h3>Built for everyday work</h3>
+              <p>Perfect for students, creators, and teams who need quick file results.</p>
+            </article>
+          </div>
+        </div>
+      </section>
 
       <ToolsGrid />
     </main>

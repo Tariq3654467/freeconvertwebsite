@@ -3,6 +3,7 @@
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Home from '../../page';
+import PageContentRenderer from '../../../components/PageContentRenderer';
 import { getToolById, TOOLS_DATA } from '../../../constants/tools';
 
 export default function ToolPage() {
@@ -25,7 +26,7 @@ export default function ToolPage() {
       <Home initialToolId={toolId} />
       <section className="tool-info-wrap">
         <div className="tool-info-card">
-          <h1 className="tool-info-title">How to {actionVerb} {heading}?</h1>
+          <PageContentRenderer pageKey={isCompress ? 'compress-page' : 'convert-page'} fallbackTitle={`How to ${actionVerb} ${heading}?`} fallbackSubtitle="Use this page to explain the workflow for this tool." fallbackBody="" />
           <ol className="tool-steps">
             <li>Click the <strong>Choose File</strong> button and upload your {noun}.</li>
             <li>Adjust format or compression settings based on your tool.</li>
